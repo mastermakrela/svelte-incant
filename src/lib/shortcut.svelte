@@ -20,11 +20,7 @@
 		});
 
 		return () => {
-			remove_shortcut({
-				keys,
-				description,
-				action
-			});
+			remove_shortcut(keys);
 		};
 	});
 </script>

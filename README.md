@@ -1,58 +1,75 @@
-# Svelte library
+# Svelte Incant
 
-Everything you need to build a Svelte library, powered by [`sv`](https://npmjs.com/package/sv).
+A keyboard shortcut management library for Svelte 5.
 
-Read more about creating a library [in the docs](https://svelte.dev/docs/kit/packaging).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
+## Installation
 
 ```sh
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+bun install svelte-incant
 ```
 
-## Developing
+## Usage
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Add `Palette` component to your root layout to enable the shortcut overlay:
 
-```sh
-npm run dev
+```svelte
+<script>
+	import { Palette } from 'svelte-incant';
+</script>
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+<Palette />
+
+<!-- ... -->
 ```
 
-Everything inside `src/lib` is part of your library, everything inside `src/routes` can be used as a showcase or preview app.
+Register keyboard shortcuts with the `Shortcut` component:
 
-## Building
+```svelte
+<script>
+	import { Shortcut } from 'svelte-incant';
+</script>
 
-To build your library:
-
-```sh
-npm pack
+<Shortcut
+	keys={['control', 's']}
+	description="Save document"
+	action={() => console.log('Save document')}
+/>
 ```
 
-To create a production version of your showcase app:
+For focusing elements (like inputs), use the `Focus` component:
 
-```sh
-npm run build
+```svelte
+<script>
+	import { Focus } from 'svelte-incant';
+</script>
+
+<Focus keys={['control', 'e']} description="Focus search input">
+	<input type="text" placeholder="Search..." />
+</Focus>
 ```
 
-You can preview the production build with `npm run preview`.
+Or attach shortcuts directly to an element using the `@attach` directive:
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```svelte
+<script>
+	import { shortcut } from 'svelte-incant';
+</script>
 
-## Publishing
-
-Go into the `package.json` and give your package the desired name through the `"name"` option. Also consider adding a `"license"` field and point it to a `LICENSE` file which you can create from a template (one popular option is the [MIT license](https://opensource.org/license/mit/)).
-
-To publish your library to [npm](https://www.npmjs.com):
-
-```sh
-npm publish
+<input
+	type="text"
+	placeholder="Type something..."
+	{@attach shortcut({
+		keys: ['meta', 'i'],
+		description: 'Focus text input'
+	})}
+/>
 ```
+
+The `@attach` directive focuses the element it attaches to directly, as opposed to the `Focus` component, which wraps the children in a `div` and focuses that.
+
+## Features
+
+- **Shortcut Palette**: Press `?` to open the shortcut palette and see all registered shortcuts
+- **Route-specific Shortcuts**: Shortcuts only run when their component is mounted, allowing different shortcuts in different routes
+- **Focus Management**: Easily manage focus states with keyboard shortcuts
+- **Component-based**: Use components or directives to register shortcuts

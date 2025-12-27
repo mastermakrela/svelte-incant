@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isArrayOfArrays, slugify, formatKeysForDisplay } from '../palette.svelte.js';
+import { isArrayOfArrays, slugify, normalizeKeys } from '../palette.svelte.js';
 
 describe('Shortcut Array Functionality', () => {
 	describe('isArrayOfArrays', () => {
@@ -21,6 +21,48 @@ describe('Shortcut Array Functionality', () => {
 		});
 	});
 
+	describe('normalizeKeys', () => {
+		it('should handle strings', () => {
+			expect(normalizeKeys('test')).toStrictEqual([['test']]);
+			expect(normalizeKeys('?')).toStrictEqual([['?']]);
+		});
+
+		it('should handle string arrays', () => {
+			expect(normalizeKeys(['meta', 'k'])).toStrictEqual([['k', 'meta']]);
+			expect(normalizeKeys(['ctrl', 'shift', 't'])).toStrictEqual([['ctrl', 'shift', 't']]);
+		});
+
+		it('should sort keys within combos', () => {
+			expect(normalizeKeys(['control', 'a'])).toStrictEqual([['a', 'control']]);
+			expect(normalizeKeys(['z', 'a', 'm'])).toStrictEqual([['a', 'm', 'z']]);
+		});
+
+		it('should handle string[][] arrays', () => {
+			expect(normalizeKeys([['?'], ['/']])).toStrictEqual([['?'], ['/']]);
+			expect(
+				normalizeKeys([
+					['meta', 'k'],
+					['ctrl', 'k']
+				])
+			).toStrictEqual([
+				['k', 'meta'],
+				['ctrl', 'k']
+			]);
+		});
+
+		it('should sort keys within each combo in string[][]', () => {
+			expect(
+				normalizeKeys([
+					['control', 'a'],
+					['a', 'control']
+				])
+			).toStrictEqual([
+				['a', 'control'],
+				['a', 'control']
+			]);
+		});
+	});
+
 	describe('slugify', () => {
 		it('should handle strings', () => {
 			expect(slugify('test')).toBe('test');
@@ -28,7 +70,12 @@ describe('Shortcut Array Functionality', () => {
 		});
 
 		it('should handle string arrays', () => {
-			expect(slugify(['meta', 'k'])).toBe('meta-k');
+			expect(slugify(['meta', 'k'])).toBe('k-meta');
+		});
+
+		it('should sort keys before slugifying', () => {
+			expect(slugify(['control', 'a'])).toBe('a-control');
+			expect(slugify(['z', 'a', 'm'])).toBe('a-m-z');
 		});
 
 		it('should handle string[][] arrays', () => {
@@ -38,29 +85,16 @@ describe('Shortcut Array Functionality', () => {
 					['meta', 'k'],
 					['ctrl', 'k']
 				])
-			).toBe('meta-k|ctrl-k');
-		});
-	});
-
-	describe('formatKeysForDisplay', () => {
-		it('should handle strings', () => {
-			expect(formatKeysForDisplay('?')).toBe('?');
-			expect(formatKeysForDisplay('escape')).toBe('⎋');
+			).toBe('k-meta|ctrl-k');
 		});
 
-		it('should handle string arrays', () => {
-			expect(formatKeysForDisplay(['meta', 'k'])).toBe('⌘ K');
-			expect(formatKeysForDisplay(['ctrl', 'shift', 't'])).toBe('⌃ ⇧ T');
-		});
-
-		it('should handle string[][] arrays', () => {
-			expect(formatKeysForDisplay([['?'], ['/']])).toBe('? or /');
+		it('should handle multiple alternative shortcuts', () => {
 			expect(
-				formatKeysForDisplay([
-					['meta', 'k'],
-					['ctrl', 'k']
+				slugify([
+					['control', 's'],
+					['meta', 's']
 				])
-			).toBe('⌘ K or ⌃ K');
+			).toBe('control-s|meta-s');
 		});
 	});
 });

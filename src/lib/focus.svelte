@@ -1,19 +1,22 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { attach_shortcut } from './attachment.svelte';
+	import { shortcut } from './attachment.svelte';
+	import type { ClassValue } from 'svelte/elements';
 
 	let {
 		keys,
 		description,
 		element,
 		children,
-		after_focus
+		after_focus,
+		class: className
 	}: {
-		keys: string | string[];
+		keys: string | string[] | string[][];
 		description?: string;
 		element?: HTMLElement;
 		children: Snippet;
 		after_focus?: () => void;
+		class?: ClassValue;
 	} = $props();
 
 	let container: HTMLElement;
@@ -42,7 +45,8 @@
 <div
 	bind:this={container}
 	tabindex="-1"
-	{@attach attach_shortcut({
+	class={className}
+	{@attach shortcut({
 		keys,
 		description: description,
 		action: focusChild

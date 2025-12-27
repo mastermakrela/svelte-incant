@@ -39,3 +39,5 @@ export function keyToSymbol(key: string): string {
 	const lower = key.toLowerCase();
 	return symbols[lower] ?? key.toUpperCase();
 }
+
+// export const isMac = $derived(browser ? navigator.platform.includes('MAC') : false);

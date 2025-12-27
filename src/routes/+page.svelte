@@ -1,223 +1,246 @@
 <script lang="ts">
-	import { attach_shortcut } from '$lib/attachment.svelte.js';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Command from '$lib/components/ui/command/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
-	import Focus from '$lib/focus.svelte';
-	import { add_shortcut, remove_shortcut, shortcuts } from '$lib/palette.svelte.js';
-	import ShortcutComponent from '$lib/shortcut.svelte';
-	import { cn } from '$lib/utils.js';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
-	import { tick } from 'svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Focus } from '$lib';
+	import ComboboxExample from '$lib/combobox-example.svelte';
+	import CodeBlock from '$lib/components/CodeBlock.svelte';
+	import Header from '$lib/components/header.svelte';
+	import Kbds from '$lib/components/kbds.svelte';
+	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import * as Kbd from '$lib/components/ui/kbd/index.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import Palette, { type PalettePosition } from '$lib/palette.svelte';
 
-	import { PressedKeys } from 'runed';
+	const installCode = `bun install svelte-incant`;
 
-	const frameworks = [
-		{
-			value: 'sveltekit',
-			label: 'SvelteKit'
-		},
-		{
-			value: 'next.js',
-			label: 'Next.js'
-		},
-		{
-			value: 'nuxt.js',
-			label: 'Nuxt.js'
-		},
-		{
-			value: 'remix',
-			label: 'Remix'
-		},
-		{
-			value: 'astro',
-			label: 'Astro'
-		}
-	];
+	const layoutCode =
+		`<script>
+  import { Palette } from 'svelte-incant';
+ <` +
+		`/script>
 
-	let open = $state(false);
-	let value = $state('');
-	let triggerRef = $state<HTMLButtonElement>(null!);
+ <Palette />
 
-	const selectedValue = $derived(frameworks.find((f) => f.value === value)?.label);
+ <!-- ... -->
+ `;
 
-	function closeAndFocusTrigger() {
-		open = false;
-		tick().then(() => {
-			triggerRef.focus();
-		});
-	}
+	const shortcutCode =
+		`<script>
+  import { Shortcut } from 'svelte-incant';
+ <` +
+		`/script>
 
-	let keys = $state('');
-	let description = $state('');
+ <Shortcut
+  keys={['control', 's']}
+  description="Save document"
+  action={() => console.log('Save document')}
+ />`;
 
-	function handleAddShortcut() {
-		if (!keys || !description) return;
+	const focusCode =
+		`<script>
+  import { Focus } from 'svelte-incant';
+ <` +
+		`/script>
 
-		add_shortcut({
-			keys: keys.split('+'),
-			description: description,
-			action: () => {
-				console.log(`Shortcut triggered: ${keys}`);
-			}
-		});
+ <Focus keys={['control', 'e']} description="Focus search input">
+  <input type="text" placeholder="Search..." />
+ </Focus>`;
 
-		// Clear form
-		keys = '';
-		description = '';
-	}
+	const attachCode =
+		`<script>
+  import { shortcut } from 'svelte-incant';
+  <` +
+		`/script>
 
-	function handleRemoveShortcut() {
-		if (!keys) return;
+  <input
+   type="text"
+   placeholder="Type something..."
+   {@attach shortcut({
+    keys: ['meta', 'i'],
+     description: 'Focus text input',
+   })}
+  />`;
 
-		remove_shortcut({
-			keys: keys,
-			description: '',
-			action: () => {}
-		});
+	const inputDemoCode =
+		`<script>
+  import { Focus } from 'svelte-incant';
+  import { Input } from './components/ui/input';
+ <` +
+		`/script>
 
-		keys = '';
-	}
+  <Focus keys={['control', 'e']} description="Focus search input" class="rounded">
+    <Input type="text" placeholder="Search..." />
+  </Focus>`;
 
-	const pressed_keys = new PressedKeys();
+	const positionCode =
+		`<script>
+  import { Palette } from 'svelte-incant';
+ <` +
+		`/script>
+
+  <!-- Position the palette trigger in top-left corner -->
+  <Palette position="top-left" />
+
+  <!-- Hide the trigger button completely -->
+  <Palette position="none" />`;
+
+	let position = $state<PalettePosition>('bottom-right');
 </script>
 
-<pre class="fixed top-2 left-2">{JSON.stringify(pressed_keys.all, null, 2)}</pre>
+<Palette {position} />
 
-<div class="container mx-auto max-w-2xl p-8">
-	<h1 class="mb-6 text-2xl font-bold">Shortcut Manager</h1>
+<svelte:head>
+	<title>Svelte Incant</title>
+	<meta name="description" content="A keyboard shortcut management library for Svelte" />
+</svelte:head>
 
-	<div class="mb-8 rounded-lg border p-6">
-		<h2 class="mb-4 text-lg font-semibold">Add New Shortcut</h2>
-		<form
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleAddShortcut();
-			}}
-			class="space-y-4"
-		>
-			<Focus keys={['control', 'e']} description="Focus search input">
-				<div>
-					<label for="keys" class="mb-1 block text-sm font-medium">Keys</label>
-					<input
-						id="keys"
-						type="text"
-						bind:value={keys}
-						placeholder="e.g., Ctrl+D or a"
-						class="w-full rounded-md border px-3 py-2"
-					/>
-				</div>
-			</Focus>
+<Header />
 
-			<div>
-				<label for="keys" class="mb-1 block text-sm font-medium">Keys</label>
-				<input
-					id="keys"
-					type="text"
-					bind:value={keys}
-					placeholder="e.g., Ctrl+D or a"
-					class="w-full rounded-md border px-3 py-2"
-				/>
+<div class="flex flex-col items-center px-4">
+	<main class="w-full max-w-2xl space-y-16 py-16">
+		<!-- Installation -->
+		<section class="space-y-6">
+			<h2 class="text-2xl font-semibold">Installation</h2>
+			<CodeBlock language="javascript" code={installCode} />
+		</section>
+
+		<!-- Usage -->
+		<section class="space-y-6">
+			<h2 class="text-2xl font-semibold">Usage</h2>
+			<div class="space-y-4">
+				<p class="">Add Palette component to your root layout to enable shortcut overlay.</p>
+
+				<CodeBlock language="xml" code={layoutCode} />
+
+				<p class="">Register keyboard shortcuts with Shortcut component:</p>
+
+				<CodeBlock language="xml" code={shortcutCode} />
+
+				<p class="">For focusing elements (like inputs), use <code>Focus</code> component:</p>
+
+				<CodeBlock language="xml" code={focusCode} />
+
+				<p class="">or attach shortcuts directly to an element using:</p>
+
+				<CodeBlock language="xml" code={attachCode} />
+
+				<p class="text-sm text-muted-foreground">
+					This focuses the element it attaches to directly, as opposed to the <code>Focus</code>
+					component, which wraps the children in a <code>div</code> and focuses that.
+				</p>
 			</div>
 
-			<div>
-				<label for="description" class="mb-1 block text-sm font-medium">Description</label>
-				<input
-					id="description"
-					type="text"
-					bind:value={description}
-					placeholder="e.g., Delete item"
-					class="w-full rounded-md border px-3 py-2"
-					{@attach attach_shortcut({ keys: ['control', 'x'], description: 'Focus description' })}
-				/>
+			<hr class="my-8" />
+
+			<p>
+				<code>Shortcuts</code> appear in the <code>Palette</code> and run their actions, as long as the
+				component is mounted. That means you ca easily have different shortcuts in different routes of
+				your site.
+			</p>
+		</section>
+
+		<!-- Demo -->
+		<section class="space-y-6">
+			<h2 class="text-2xl font-semibold">Demo</h2>
+
+			<h3 class="text-lg font-medium">Show Incant Palette</h3>
+			<Card.Root>
+				<Card.Content class="grid h-80 place-items-center">
+					<p class="text-center text-muted-foreground">
+						Press <Kbd.Root>?</Kbd.Root> to open shortcut palette and see all registered shortcuts.
+						<br />
+						Or click the button it bottom right corner of the screen.
+					</p>
+				</Card.Content>
+			</Card.Root>
+
+			<h3 class="mb-4 text-lg font-medium">Use with inputs</h3>
+			<p class="text-sm text-muted-foreground">
+				Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌥</kbd> (alt) to see the
+				focus shortcut hint. Or press <Kbds keys={['control', 'e']} /> to focus the input below.
+			</p>
+			<Tabs.Root value="example" class="w-full">
+				<Card.Root>
+					<Card.Content class="grid h-80 place-items-center">
+						<Tabs.Content value="example">
+							<Focus keys={['control', 'e']} description="Focus search input" class="rounded">
+								<Input type="text" placeholder="Search..." />
+							</Focus>
+						</Tabs.Content>
+						<Tabs.Content value="code">
+							<CodeBlock language="xml" code={inputDemoCode} />
+						</Tabs.Content>
+					</Card.Content>
+				</Card.Root>
+				<Tabs.List>
+					<Tabs.Trigger value="example">Example</Tabs.Trigger>
+					<Tabs.Trigger value="code">Code</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+
+			<h3 class="mb-4 text-lg font-medium">Use with complex components</h3>
+			<ComboboxExample />
+		</section>
+
+		<!-- Configuration -->
+		<section class="space-y-6">
+			<h2 class="text-2xl font-semibold">Configuration</h2>
+			<div class="space-y-4">
+				<p class="">
+					The <code>Palette</code> component accepts a <code>position</code> prop to control where the
+					trigger button appears:
+				</p>
+
+				<CodeBlock language="xml" code={positionCode} />
+
+				<p class="">Available positions:</p>
+				<ul class="flex flex-wrap gap-2 text-xs">
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'top-left')}
+							><code>top-left</code></Button
+						>
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'top-center')}
+							><code>top-center</code></Button
+						>
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'top-right')}
+							><code>top-right</code></Button
+						>
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'bottom-left')}
+							><code>bottom-left</code></Button
+						>
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'bottom-center')}
+							><code>bottom-center</code></Button
+						>
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'bottom-right')}
+							><code>bottom-right</code></Button
+						> (default)
+					</li>
+					<li>
+						<Button variant="ghost" size="sm" onclick={() => (position = 'none')}
+							><code>none</code></Button
+						> (hides the trigger button)
+					</li>
+				</ul>
 			</div>
+		</section>
 
-			<div class="flex gap-2">
-				<button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-					Add Shortcut
-				</button>
-
-				<button
-					type="button"
-					onclick={handleRemoveShortcut}
-					class="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+		<!-- Footer -->
+		<footer class="space-y-2 border-t pt-8 text-center text-sm text-muted-foreground">
+			<p>
+				Created by <a href="https://mastermakrela.com" target="_blank" class="hover:underline"
+					>mastermakrela</a
 				>
-					Remove Shortcut
-				</button>
-			</div>
-		</form>
-	</div>
-
-	<div class="mb-8 space-y-8 rounded-lg border p-6">
-		<h2 class="mb-4 text-lg font-semibold">Framework Combobox</h2>
-
-		<Popover.Root bind:open>
-			<Popover.Trigger bind:ref={triggerRef}>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="outline"
-						class="w-[200px] justify-between"
-						role="combobox"
-						aria-expanded={open}
-						{@attach attach_shortcut({
-							keys: ['meta', 'k'],
-							description: 'Focus framework',
-							action: () => {
-								open = true;
-							}
-						})}
-					>
-						{selectedValue || 'Select a framework...'}
-						<ChevronsUpDownIcon class="opacity-50" />
-					</Button>
-				{/snippet}
-			</Popover.Trigger>
-			<Popover.Content class="w-[200px] p-0">
-				<Command.Root>
-					<Command.Input placeholder="Search framework..." />
-					<Command.List>
-						<Command.Empty>No framework found.</Command.Empty>
-						<Command.Group value="frameworks">
-							{#each frameworks as framework (framework.value)}
-								<Command.Item
-									value={framework.value}
-									onSelect={() => {
-										value = framework.value;
-										closeAndFocusTrigger();
-									}}
-								>
-									<CheckIcon class={cn(value !== framework.value && 'text-transparent')} />
-									{framework.label}
-								</Command.Item>
-							{/each}
-						</Command.Group>
-					</Command.List>
-				</Command.Root>
-			</Popover.Content>
-		</Popover.Root>
-	</div>
-
-	<div class="rounded-lg border p-6">
-		<h2 class="mb-4 text-lg font-semibold">Current Shortcuts</h2>
-		<pre class="overflow-auto rounded bg-gray-100 p-4">{JSON.stringify(shortcuts, null, 2)}</pre>
-	</div>
+			</p>
+		</footer>
+	</main>
 </div>
-
-<ShortcutComponent
-	keys={['control', 'A']}
-	description="Delete item"
-	action={() => {
-		console.log('Delete shortcut triggered!');
-		alert('Delete shortcut triggered!');
-	}}
-/>
-
-<ShortcutComponent
-	keys={['a']}
-	description="lorem ipsum"
-	action={() => {
-		console.log('lorem ipsum');
-	}}
-/>
