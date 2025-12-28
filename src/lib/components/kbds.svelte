@@ -3,11 +3,9 @@
 	import { keyToSymbol } from '$lib/utils.js';
 
 	let {
-		keys,
-		separator = 'or'
+		keys
 	}: {
 		keys: string | string[] | string[][];
-		separator?: string;
 	} = $props();
 
 	type KeyCombination = string[];
@@ -19,13 +17,26 @@
 				? [keys as string[]]
 				: (keys as KeyCombination[])
 	);
+
+	const formatter: Intl.ListFormat = $derived(
+		new Intl.ListFormat(undefined, {
+			style: 'long',
+			type: 'disjunction'
+		})
+	);
+
+	const formattedParts = $derived.by(() => {
+		const combos = keyGroups.map((group) => group.map(keyToSymbol).join(' '));
+		return formatter.formatToParts(combos);
+	});
 </script>
 
 <Kbd.Group class="text-xs">
-	{#each keyGroups as group, index (index)}
-		{#if index > 0}
-			<span class="mx-1 text-muted-foreground">{separator}</span>
+	{#each formattedParts as part (part)}
+		{#if part.type === 'element'}
+			<Kbd.Root>{part.value}</Kbd.Root>
+		{:else}
+			<span class="mx-1 text-muted-foreground">{part.value}</span>
 		{/if}
-		<Kbd.Root>{group.map(keyToSymbol).join(' ')}</Kbd.Root>
 	{/each}
 </Kbd.Group>
