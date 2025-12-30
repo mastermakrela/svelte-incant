@@ -11,7 +11,14 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import Palette, { type PalettePosition } from '$lib/palette.svelte';
 
-	const installCode = `bun install svelte-incant`;
+	const installCode = `bun add svelte-incant`;
+
+	const sourceCode = `@import 'tailwindcss';
+
+/* Add this line to include svelte-incant utility classes */
+@source '../../node_modules/svelte-incant/**/*.{svelte,js,ts}';
+
+/* rest of your styles here */`;
 
 	const layoutCode =
 		`<script>
@@ -101,7 +108,31 @@
 		<!-- Installation -->
 		<section class="space-y-6">
 			<h2 class="text-2xl font-semibold">Installation</h2>
-			<CodeBlock language="javascript" code={installCode} />
+
+			<div class="space-y-4">
+				<p class="">1. Install the package:</p>
+				<CodeBlock language="bash" code={installCode} />
+
+				<p class="">
+					2. Add <code>@source</code> directive to your CSS file where Tailwind is configured (e.g.,
+					<code>src/app.css</code>):
+				</p>
+				<CodeBlock language="css" code={sourceCode} />
+			</div>
+
+			<p class="text-sm text-muted-foreground">
+				Requires <a
+					href="https://tailwindcss.com/docs/installation/using-vite"
+					target="_blank"
+					class="underline hover:text-foreground">Tailwind CSS 4</a
+				>
+				and
+				<a
+					href="https://shadcn-svelte.com/docs/installation"
+					target="_blank"
+					class="underline hover:text-foreground">shadcn-svelte</a
+				> to be installed and configured in your project.
+			</p>
 		</section>
 
 		<!-- Usage -->
