@@ -1,12 +1,12 @@
-name: Publish to npm
+name: Publish Package
 
 on:
   push:
     branches: [main]
 
 permissions:
-  contents: read
   id-token: write
+  contents: read
 
 jobs:
   publish:
@@ -14,10 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
-      - run: bun install
+      - run: npm ci
 
-      - run: bun run build
+      - run: npm run build
 
-      - run: npm publish --provenance --access public
+      - run: npm publish
