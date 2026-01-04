@@ -32,6 +32,7 @@ const voidElements = new Set([
 type ShortcutInput = Omit<Shortcut, 'action' | 'keys'> & {
 	keys: string | string[] | string[][];
 	action?: () => void;
+	click?: boolean;
 };
 
 function setupAnchor(
@@ -99,7 +100,9 @@ export function shortcut(shortcut: ShortcutInput): Attachment<HTMLElement> {
 	return (element) => {
 		const action = () => {
 			element.focus();
-			element.click();
+			if (shortcut.click !== false) {
+				element.click();
+			}
 			shortcut.action?.();
 		};
 

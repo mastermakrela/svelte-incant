@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { Focus, Palette } from '$lib';
+	import { Focus, Palette, shortcut } from '$lib';
 	import ComboboxExample from '$lib/combobox-example.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import Header from '$lib/components/header.svelte';
@@ -60,6 +60,17 @@
     description: 'Focus text input'
    })}
   />`;
+
+	const linkButtonDemoCode = `<div class="grid grid-cols-2 place-items-center gap-8">
+	<Focus keys={['control', 'l']} description="Opens a link" class="rounded">
+		<Button href="https://mastermakrela.com" target="_blank" variant="link">
+			Link
+		</Button>
+	</Focus>
+	<Focus keys={['control', 'b']} description="Clicks a button" class="rounded">
+		<Button onclick={() => alert('Button clicked!')}>Button</Button>
+	</Focus>
+</div>`;
 
 	const inputDemoCode =
 		`<script>
@@ -173,6 +184,33 @@
 					</p>
 				</Card.Content>
 			</Card.Root>
+
+			<h3 class="mb-4 text-lg font-medium">Use with links and buttons</h3>
+			<Tabs.Root value="example" class="w-full">
+				<Card.Root>
+					<Card.Content class="grid h-80 place-items-center">
+						<Tabs.Content value="example">
+							<div class="grid grid-cols-2 place-items-center gap-8">
+								<Focus keys={['control', 'l']} description="Opens a link" class="rounded">
+									<Button href="https://mastermakrela.com" target="_blank" variant="link">
+										Link
+									</Button>
+								</Focus>
+								<Focus keys={['control', 'b']} description="Clicks a button" class="rounded">
+									<Button onclick={() => alert('Button clicked!')}>Button</Button>
+								</Focus>
+							</div>
+						</Tabs.Content>
+						<Tabs.Content value="code">
+							<CodeBlock language="xml" code={linkButtonDemoCode} />
+						</Tabs.Content>
+					</Card.Content>
+				</Card.Root>
+				<Tabs.List>
+					<Tabs.Trigger value="example">Example</Tabs.Trigger>
+					<Tabs.Trigger value="code">Code</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
 
 			<h3 class="mb-4 text-lg font-medium">Use with inputs</h3>
 			<p class="text-sm text-muted-foreground">

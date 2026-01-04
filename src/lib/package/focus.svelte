@@ -10,7 +10,8 @@
 		element,
 		children,
 		after_focus,
-		class: className
+		class: className,
+		click = true
 	}: {
 		keys: string | string[] | string[][];
 		description?: string;
@@ -18,6 +19,7 @@
 		children: Snippet;
 		after_focus?: () => void;
 		class?: ClassValue;
+		click?: boolean;
 	} = $props();
 
 	let container: HTMLElement;
@@ -31,19 +33,21 @@
 	});
 
 	function focusChild() {
-		if (element) {
-			element.focus();
-		} else if (container) {
-			// Try to find first focusable element
-			const focusable = container.querySelector<HTMLElement>(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-			);
+		const targetElement =
+			element ||
+			(() => {
+				// Try to find first focusable element
+				const focusable = container.querySelector<HTMLElement>(
+					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+				);
 
-			if (focusable) {
-				focusable.focus();
-			} else {
-				// If no focusable element found, focus the container itself
-				container.focus();
+				return focusable || container;
+			})();
+
+		if (targetElement) {
+			targetElement.focus();
+			if (click) {
+				targetElement.click();
 			}
 		}
 
@@ -58,7 +62,8 @@
 	{@attach shortcut({
 		keys,
 		description: description,
-		action: focusChild
+		action: focusChild,
+		click
 	})}
 >
 	{@render children()}
