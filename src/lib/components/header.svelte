@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { shortcut } from '$lib';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Kbd from '$lib/components/ui/kbd/index.js';
+	import * as Kbd from '$lib/package/components/ui/kbd/index.js';
 	import GithubIcon from '@lucide/svelte/icons/github';
 	import { useInterval } from 'runed';
 

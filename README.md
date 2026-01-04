@@ -4,42 +4,15 @@ A keyboard shortcut management library for Svelte 5.
 
 ## Installation
 
-### Prerequisites
+Install the package:
 
-This package requires **Tailwind CSS 4** and **shadcn-svelte** to be installed and configured in your project.
+```bash
+bun add svelte-incant
+```
 
-### Setup
+Peer dependencies (`svelte`, `bits-ui`) will be installed automatically.
 
-1. **Install and configure Tailwind CSS** (if not already):
-
-   ```bash
-   bunx sv add tailwind
-   ```
-
-2. **Initialize shadcn-svelte** (if not already):
-
-   ```bash
-   bunx shadcn-svelte@latest init
-   ```
-
-   Follow the official [shadcn-svelte installation guide](https://shadcn-svelte.com/docs/installation) for detailed instructions.
-
-3. **Install the package** (peer dependencies are installed automatically):
-
-   ```bash
-   bun add svelte-incant
-   ```
-
-4. **Add @source directive** to your CSS file where Tailwind is configured (e.g., `src/app.css` or similar):
-
-   ```css
-   @import 'tailwindcss';
-
-   /* Add this line to include svelte-incant utility classes */
-   @source '../../node_modules/svelte-incant/**/*.{svelte,js,ts}';
-
-   /* rest of your styles here */
-   ```
+The package uses CSS custom properties (CSS variables) for styling, which work with any CSS framework or plain CSS.
 
 ## Usage
 
@@ -47,7 +20,7 @@ Add `Palette` component to your root layout to enable the shortcut overlay:
 
 ```svelte
 <script>
- import { Palette } from 'svelte-incant';
+	import { Palette } from 'svelte-incant';
 </script>
 
 <Palette />
@@ -59,13 +32,13 @@ Register keyboard shortcuts with the `Shortcut` component:
 
 ```svelte
 <script>
- import { Shortcut } from 'svelte-incant';
+	import { Shortcut } from 'svelte-incant';
 </script>
 
 <Shortcut
- keys={['control', 's']}
- description="Save document"
- action={() => console.log('Save document')}
+	keys={['control', 's']}
+	description="Save document"
+	action={() => console.log('Save document')}
 />
 ```
 
@@ -73,11 +46,11 @@ For focusing elements (like inputs), use the `Focus` component:
 
 ```svelte
 <script>
- import { Focus } from 'svelte-incant';
+	import { Focus } from 'svelte-incant';
 </script>
 
 <Focus keys={['control', 'e']} description="Focus search input">
- <input type="text" placeholder="Search..." />
+	<input type="text" placeholder="Search..." />
 </Focus>
 ```
 
@@ -85,16 +58,16 @@ Or attach shortcuts directly to an element using the `@attach` directive:
 
 ```svelte
 <script>
- import { shortcut } from 'svelte-incant';
+	import { shortcut } from 'svelte-incant';
 </script>
 
 <input
- type="text"
- placeholder="Type something..."
- {@attach shortcut({
-  keys: ['meta', 'i'],
-  description: 'Focus text input'
- })}
+	type="text"
+	placeholder="Type something..."
+	{@attach shortcut({
+		keys: ['meta', 'i'],
+		description: 'Focus text input'
+	})}
 />
 ```
 
@@ -106,23 +79,77 @@ The `@attach` directive focuses the element it attaches to directly, as opposed 
 - **Route-specific Shortcuts**: Shortcuts only run when their component is mounted, allowing different shortcuts in different routes
 - **Focus Management**: Easily manage focus states with keyboard shortcuts
 - **Component-based**: Use components or directives to register shortcuts
-- **Shadcn-svelte Integration**: Full styling integration with shadcn-svelte components
+- **Framework Agnostic**: Works with any CSS framework or plain CSS using CSS custom properties
+
+## Customization
+
+The package uses CSS custom properties (CSS variables) for styling. You can override these in your global CSS to customize the appearance:
+
+```css
+/* Example: Customize colors */
+:root {
+	--incant-colors-primary: hsl(210 100% 50%);
+	--incant-colors-primary-foreground: hsl(0 0% 100%);
+	--incant-kbd-bg: #1e293b;
+	--incant-kbd-color: #e2e8f0;
+}
+
+/* Dark mode support */
+.dark {
+	--incant-colors-background: hsl(240 10% 3.9%);
+	--incant-colors-foreground: hsl(0 0% 98%);
+	--incant-colors-primary: hsl(0 0% 98%);
+	--incant-colors-primary-foreground: hsl(240 5.9% 10%);
+	--incant-colors-muted: hsl(240 3.7% 15.9%);
+	--incant-colors-muted-foreground: hsl(240 5% 64.9%);
+	--incant-colors-border: hsl(240 3.7% 15.9%);
+	--incant-colors-overlay: hsla(0 0% 0% / 0.8);
+	--incant-kbd-bg: #374151;
+	--incant-kbd-color: #9ca3af;
+}
+```
+
+### Available CSS Variables
+
+**Colors:**
+
+- `--incant-colors-background`: Main background color
+- `--incant-colors-foreground`: Main text color
+- `--incant-colors-primary`: Primary button background
+- `--incant-colors-primary-foreground`: Primary button text
+- `--incant-colors-muted`: Muted background
+- `--incant-colors-muted-foreground`: Muted text
+- `--incant-colors-border`: Border color
+- `--incant-colors-overlay`: Dialog overlay
+- `--incant-kbd-bg`: Keyboard key background
+- `--incant-kbd-color`: Keyboard key text
+
+**Spacing:**
+
+- `--incant-spacing-1`: 0.25rem
+- `--incant-spacing-2`: 0.5rem
+- `--incant-spacing-3`: 0.75rem
+- `--incant-spacing-4`: 1rem
+- `--incant-spacing-6`: 1.5rem
+
+**Typography:**
+
+- `--incant-font-size-xs`: 0.75rem
+- `--incant-font-size-sm`: 0.875rem
+- `--incant-font-size-lg`: 1.125rem
+
+**Border Radius:**
+
+- `--incant-radius-sm`: 0.25rem
+- `--incant-radius-md`: 0.375rem
+- `--incant-radius-lg`: 0.5rem
+
+**Shadows:**
+
+- `--incant-shadow-xs`: 0 1px 2px 0 rgba(0, 0, 0, 0.05)
+- `--incant-shadow-lg`: 0 10px 15px -3px rgba(0, 0, 0, 0.1)
 
 ## Troubleshooting
-
-### Styles are missing or components look unstyled
-
-1. **Check @source directive**: Make sure you added the `@source` directive to your CSS file as shown in the installation steps.
-
-2. **Verify Tailwind 4**: Ensure you're using Tailwind CSS v4, as the `@source` directive is a v4 feature:
-
-   ```bash
-   bun list tailwindcss
-   ```
-
-3. **Check shadcn-svelte setup**: Make sure shadcn-svelte is properly initialized with all required CSS variables and theme configuration.
-
-4. **Build your project**: Sometimes you need to restart your development server or rebuild your project for changes to take effect.
 
 ### Peer dependency errors
 
@@ -135,3 +162,31 @@ bun list | grep -E "(bits-ui|runed|@lucide/svelte)"
 # If missing, install them manually
 bun add bits-ui runed @lucide/svelte
 ```
+
+### Styles are missing
+
+If components appear unstyled:
+
+1. **Check CSS imports**: Make sure you have a CSS file that includes your styles.
+2. **CSS variables**: The package relies on CSS custom properties. Make sure you're not overriding them unintentionally.
+3. **Build your project**: Sometimes you need to restart your development server for changes to take effect.
+
+---
+
+## Migration from v0.1.x
+
+**v0.2.0 introduced a major change**: The library no longer requires Tailwind CSS and now uses CSS custom properties for styling. This makes the library more lightweight and framework-agnostic.
+
+### What changed:
+
+- **Removed dependency** on Tailwind CSS and shadcn-svelte
+- **Replaced with** CSS custom properties for all styling
+- **Improved compatibility** with any CSS framework or plain CSS
+
+### If you're upgrading from v0.1.x:
+
+1. **No code changes needed** - your components and shortcuts will work the same
+2. **Optional**: If you want to customize appearance, use the CSS variables shown in the [Customization](#customization) section
+3. **Optional**: Remove any Tailwind-specific configurations that were only needed for this library
+
+The API remains identical, so existing code will continue to work without modification.

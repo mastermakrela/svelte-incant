@@ -23,3 +23,9 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Package manager lock files (library packages should not commit lock files)
+bun.lock
+# package-lock.json # we need it for deployment CI
+yarn.lock
+pnpm-lock.yaml

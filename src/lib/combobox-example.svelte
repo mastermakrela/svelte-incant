@@ -1,11 +1,11 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card';
-	import { shortcut } from '$lib/attachment.svelte.js';
+	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Card from '$lib/components/ui/card';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import CodeBlock from '$lib/components/CodeBlock.svelte';
+	import { shortcut } from '$lib/package/attachment.svelte.js';
 
 	import { cn } from '$lib/utils.js';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -121,7 +121,9 @@
 												closeAndFocusTrigger();
 											}}
 										>
-											<CheckIcon class={cn(value !== framework.value && 'text-transparent')} />
+											<CheckIcon
+												class={cn(value !== framework.value ? 'text-transparent' : undefined)}
+											/>
 											{framework.label}
 										</Command.Item>
 									{/each}
