@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { PressedKeys } from 'runed';
 	import Kbds from './components/kbds.svelte';
-	import { shortcuts, slugify } from './palette.svelte.js';
-	import { normalizeKeys } from './palette.svelte.js';
+	import { normalizeKeys, shortcuts } from './palette.svelte.js';
 
 	export type OverlayComponentProps = {
 		keys: string | string[] | string[][];
