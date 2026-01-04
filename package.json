@@ -3,9 +3,9 @@
 	"version": "0.3.0",
 	"license": "MIT",
 	"repository": {
-		"url": "https://github.com/mastermakrela/svelte-shortcut-pallete"
+		"url": "https://github.com/mastermakrela/svelte-incant"
 	},
-	"bugs": "https://github.com/mastermakrela/svelte-shortcut-pallete/issues",
+	"bugs": "https://github.com/mastermakrela/svelte-incant/issues",
 	"homepage": "https://svelte-incant.mastermakrela.com/",
 	"author": "mastermakrela <github@mastermakrela.com>",
 	"scripts": {
