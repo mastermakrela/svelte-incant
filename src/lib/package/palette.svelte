@@ -21,9 +21,42 @@
 	import Shortcut from './shortcut.svelte';
 
 	let {
-		position = 'bottom-right'
+		position = 'bottom-right',
+		texts = {
+			shortcutDescription: 'Open shortcut palette',
+			tooltipContent: 'Press ?',
+			dialogTitle: 'Keyboard Shortcuts',
+			descriptionText:
+				'Press any key to filter shortcuts containing that key. Matching keys will be highlighted in green.',
+			tableHeaders: {
+				keys: 'Keys',
+				description: 'Description',
+				enabled: 'Enabled'
+			},
+			toggleLabels: {
+				enable: 'Enable shortcut',
+				disable: 'Disable shortcut'
+			},
+			emptyState: 'No shortcuts containing'
+		}
 	}: {
 		position?: PalettePosition;
+		texts?: {
+			shortcutDescription?: string;
+			tooltipContent?: string;
+			dialogTitle?: string;
+			descriptionText?: string;
+			tableHeaders?: {
+				keys?: string;
+				description?: string;
+				enabled?: string;
+			};
+			toggleLabels?: {
+				enable?: string;
+				disable?: string;
+			};
+			emptyState?: string;
+		};
 	} = $props();
 
 	let open = $state(false);
@@ -59,7 +92,11 @@
 	});
 </script>
 
-<Shortcut keys={[['?'], ['/']]} description="Open shortcut palette" action={() => (open = !open)} />
+<Shortcut
+	keys={[['?'], ['/']]}
+	description={texts.shortcutDescription}
+	action={() => (open = !open)}
+/>
 
 <Tooltip.Provider delayDuration={0}>
 	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
@@ -72,7 +109,8 @@
 			{/snippet}
 		</Tooltip.Trigger>
 		<Tooltip.Content>
-			Press <Kbd.Root>?</Kbd.Root>
+			{texts.tooltipContent}
+			<Kbd.Root>?</Kbd.Root>
 		</Tooltip.Content>
 	</Tooltip.Root>
 </Tooltip.Provider>
@@ -80,18 +118,19 @@
 <Dialog.Root bind:open>
 	<Dialog.Content>
 		<Dialog.Header>
-			<Dialog.Title>Keyboard Shortcuts</Dialog.Title>
+			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>
 			<Dialog.Description class="incant-palette-description">
 				<p class="incant-palette-description-text">
-					Press any key to filter shortcuts containing that key. Matching keys will be highlighted
-					in green.
+					{texts.descriptionText}
 				</p>
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head>Keys</Table.Head>
-							<Table.Head>Description</Table.Head>
-							<Table.Head class="incant-palette-cell-actions">Enabled</Table.Head>
+							<Table.Head>{texts.tableHeaders.keys}</Table.Head>
+							<Table.Head>{texts.tableHeaders.description}</Table.Head>
+							<Table.Head class="incant-palette-cell-actions"
+								>{texts.tableHeaders.enabled}</Table.Head
+							>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -106,7 +145,9 @@
 										type="button"
 										class="incant-palette-toggle"
 										onclick={() => registry.toggle(shortcut.keys)}
-										aria-label={shortcut.enabled ? 'Disable shortcut' : 'Enable shortcut'}
+										aria-label={shortcut.enabled
+											? texts.toggleLabels.disable
+											: texts.toggleLabels.enable}
 										tabindex="0"
 									>
 										{#if shortcut.enabled !== false}
@@ -120,7 +161,7 @@
 						{:else}
 							<Table.Row>
 								<Table.Cell colspan={3} class="incant-palette-empty-state">
-									No shortcuts containing
+									{texts.emptyState}
 									<Kbds keys={all_keys} />
 
 									.
