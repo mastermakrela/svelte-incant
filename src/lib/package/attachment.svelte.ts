@@ -85,7 +85,7 @@ function setupOutline(element: HTMLElement, keys: string | string[] | string[][]
 		},
 		(should_show_outline) => {
 			if (should_show_outline) {
-				element.style.outline = '2px dotted currentColor';
+				element.style.outline = '2px dotted #878787';
 				element.style.outlineOffset = '2px';
 			} else {
 				element.style.outline = '';

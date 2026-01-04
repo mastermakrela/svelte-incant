@@ -5,3 +5,4 @@ export { default as Shortcut } from './shortcut.svelte';
 
 export { shortcut } from './attachment.svelte.js';
 export { shortcuts } from './palette.svelte.js';
+export { getIsMac, keyToSymbol } from './utils';

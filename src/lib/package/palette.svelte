@@ -22,6 +22,7 @@
 
 	let {
 		position = 'bottom-right',
+		showToggles = false,
 		texts = {
 			shortcutDescription: 'Open shortcut palette',
 			tooltipContent: 'Press ?',
@@ -41,6 +42,7 @@
 		}
 	}: {
 		position?: PalettePosition;
+		showToggles?: boolean;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -128,9 +130,11 @@
 						<Table.Row>
 							<Table.Head>{texts.tableHeaders.keys}</Table.Head>
 							<Table.Head>{texts.tableHeaders.description}</Table.Head>
-							<Table.Head class="incant-palette-cell-actions"
-								>{texts.tableHeaders.enabled}</Table.Head
-							>
+							{#if showToggles}
+								<Table.Head class="incant-palette-cell-actions"
+									>{texts.tableHeaders.enabled}</Table.Head
+								>
+							{/if}
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
@@ -140,27 +144,29 @@
 									<Kbds keys={shortcut.keys} />
 								</Table.Cell>
 								<Table.Cell>{shortcut.description}</Table.Cell>
-								<Table.Cell class="incant-palette-cell-actions">
-									<button
-										type="button"
-										class="incant-palette-toggle"
-										onclick={() => registry.toggle(shortcut.keys)}
-										aria-label={shortcut.enabled
-											? texts.toggleLabels.disable
-											: texts.toggleLabels.enable}
-										tabindex="0"
-									>
-										{#if shortcut.enabled !== false}
-											<ToggleRight class="incant-palette-toggle-icon enabled" />
-										{:else}
-											<ToggleLeft class="incant-palette-toggle-icon disabled" />
-										{/if}
-									</button>
-								</Table.Cell>
+								{#if showToggles}
+									<Table.Cell class="incant-palette-cell-actions">
+										<button
+											type="button"
+											class="incant-palette-toggle"
+											onclick={() => registry.toggle(shortcut.keys)}
+											aria-label={shortcut.enabled
+												? texts.toggleLabels.disable
+												: texts.toggleLabels.enable}
+											tabindex="0"
+										>
+											{#if shortcut.enabled !== false}
+												<ToggleRight class="incant-palette-toggle-icon enabled" />
+											{:else}
+												<ToggleLeft class="incant-palette-toggle-icon disabled" />
+											{/if}
+										</button>
+									</Table.Cell>
+								{/if}
 							</Table.Row>
 						{:else}
 							<Table.Row>
-								<Table.Cell colspan={3} class="incant-palette-empty-state">
+								<Table.Cell colspan={showToggles ? 3 : 2} class="incant-palette-empty-state">
 									{texts.emptyState}
 									<Kbds keys={all_keys} />
 

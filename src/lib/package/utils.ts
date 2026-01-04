@@ -35,4 +35,12 @@ export function keyToSymbol(key: string): string {
 	return symbols[lower] ?? key.toUpperCase();
 }
 
-// export const isMac = $derived(browser ? navigator.platform.includes('MAC') : false);
+// export const isMac = $derived(
+// 	typeof navigator !== 'undefined' ? navigator.platform.toUpperCase().includes('MAC') : false
+// );
+
+export function getIsMac(): boolean {
+	return typeof navigator !== 'undefined'
+		? navigator.platform.toUpperCase().includes('MAC')
+		: false;
+}

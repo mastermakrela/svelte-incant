@@ -84,10 +84,22 @@
   <!-- Hide the trigger button completely -->
   <Palette position="none" />`;
 
+	const toggleCode =
+		`<script>
+  import { Palette } from 'svelte-incant';
+ <` +
+		`/script>
+
+  <!-- Show toggle buttons for enabling/disabling shortcuts -->
+  <Palette showToggles={true} />
+
+  <!-- Hide toggle buttons (default behavior) -->
+  <Palette showToggles={false} />`;
+
 	let position = $state<PalettePosition>('bottom-right');
 </script>
 
-<Palette {position} />
+<Palette {position} showToggles={true} />
 
 <svelte:head>
 	<title>Svelte Incant</title>
@@ -117,9 +129,16 @@
 
 				<CodeBlock language="xml" code={shortcutCode} />
 
-				<p class="">For focusing elements (like inputs), use <code>Focus</code> component:</p>
+				<p class="">
+					For focusing elements (like inputs), or clicking buttons, use <code>Focus</code> component:
+				</p>
 
 				<CodeBlock language="xml" code={focusCode} />
+
+				<p class="text-sm text-muted-foreground">
+					This focuses the element it attaches to directly, as opposed to the <code>Focus</code>
+					component, which wraps the children in a <code>div</code> and focuses that.
+				</p>
 
 				<p class="">or attach shortcuts directly to an element using:</p>
 
@@ -232,6 +251,21 @@
 						> (hides the trigger button)
 					</li>
 				</ul>
+			</div>
+
+			<div class="mt-8 space-y-4">
+				<p class="">
+					The <code>Palette</code> component also accepts a <code>showToggles</code> prop to control whether
+					users can enable/disable shortcuts:
+				</p>
+
+				<CodeBlock language="xml" code={toggleCode} />
+
+				<p class="text-sm text-muted-foreground">
+					When <code>showToggles={true}</code>, users can toggle individual shortcuts on/off using
+					the toggle buttons in the palette. When <code>showToggles={false}</code> (default), the toggle
+					column is hidden and all shortcuts remain active.
+				</p>
 			</div>
 		</section>
 

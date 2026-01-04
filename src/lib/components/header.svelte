@@ -4,6 +4,9 @@
 	import * as Kbd from '$lib/package/components/ui/kbd/index.js';
 	import GithubIcon from '@lucide/svelte/icons/github';
 	import { useInterval } from 'runed';
+	import { keyToSymbol, getIsMac } from '$lib/package/utils';
+
+	const altSymbol = $derived(keyToSymbol(getIsMac() ? 'option' : 'alt'));
 
 	// All keyboard keys for the decorative background
 	const allKeys = [
@@ -134,8 +137,8 @@
 		<p class="text-lg text-muted-foreground">
 			A keyboard shortcut management library for Svelte.
 			<br />
-			Press <Kbd.Root>?</Kbd.Root> to see it in action. Or hold <Kbd.Root>Alt</Kbd.Root> to see the shortcut
-			hints.
+			Press <Kbd.Root>?</Kbd.Root> to see it in action. Or hold <Kbd.Root>{altSymbol}</Kbd.Root> to see
+			the shortcut hints.
 		</p>
 		<div class="flex items-center justify-center gap-3 pt-4">
 			<Button
