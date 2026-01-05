@@ -128,11 +128,11 @@
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head>{texts.tableHeaders.keys}</Table.Head>
-							<Table.Head>{texts.tableHeaders.description}</Table.Head>
+							<Table.Head>{texts.tableHeaders?.keys ?? 'Keys'}</Table.Head>
+							<Table.Head>{texts.tableHeaders?.description ?? 'Description'}</Table.Head>
 							{#if showToggles}
 								<Table.Head class="incant-palette-cell-actions"
-									>{texts.tableHeaders.enabled}</Table.Head
+									>{texts.tableHeaders?.enabled ?? 'Enabled'}</Table.Head
 								>
 							{/if}
 						</Table.Row>
@@ -151,8 +151,8 @@
 											class="incant-palette-toggle"
 											onclick={() => registry.toggle(shortcut.keys)}
 											aria-label={shortcut.enabled
-												? texts.toggleLabels.disable
-												: texts.toggleLabels.enable}
+												? (texts.toggleLabels?.disable ?? 'Disable shortcut')
+												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
 											tabindex="0"
 										>
 											{#if shortcut.enabled !== false}

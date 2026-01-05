@@ -44,6 +44,7 @@ export function slugify(keys: string | string[] | string[][]): string {
 
 class ShortcutRegistry {
 	shortcuts = $state<Record<string, Shortcut>>({});
+	private shortcutOrder: string[] = [];
 	registeredCombos = $state(new Set<string>());
 
 	private pressedKeys = new PressedKeys();
@@ -110,6 +111,10 @@ class ShortcutRegistry {
 			keys: normalizedKeys,
 			enabled: shortcut.enabled ?? true
 		};
+
+		if (!this.shortcutOrder.includes(slug)) {
+			this.shortcutOrder.push(slug);
+		}
 	}
 
 	remove(keys: string | string[] | string[][]): void {
@@ -127,6 +132,10 @@ class ShortcutRegistry {
 		}
 
 		delete this.shortcuts[slug];
+		const index = this.shortcutOrder.indexOf(slug);
+		if (index > -1) {
+			this.shortcutOrder.splice(index, 1);
+		}
 	}
 
 	toggle(keys: string | string[] | string[][]): void {
@@ -138,7 +147,9 @@ class ShortcutRegistry {
 
 	getShortcuts(): Shortcut[] {
 		this.startListening();
-		return Object.values(this.shortcuts);
+		return this.shortcutOrder
+			.map((slug) => this.shortcuts[slug])
+			.filter((shortcut): shortcut is Shortcut => shortcut !== undefined);
 	}
 
 	filteredShortcuts(pressedKeys: string[]): Shortcut[] {
@@ -244,7 +255,12 @@ export const shortcuts: Record<string, Shortcut> = new Proxy(
 	{},
 	{
 		get(_, prop) {
-			return getRegistry().shortcuts[prop as string];
+			const registry = getRegistry();
+			return registry.shortcuts[prop as string];
+		},
+		has(_, prop) {
+			const registry = getRegistry();
+			return prop in registry.shortcuts;
 		}
 	}
 );
