@@ -314,6 +314,9 @@
 					>mastermakrela</a
 				>
 			</p>
+			<p>
+				<a href="/llms.txt" target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly documentation
+			</p>
 		</footer>
 	</main>
 </div>

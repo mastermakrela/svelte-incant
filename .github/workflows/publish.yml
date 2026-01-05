@@ -21,6 +21,46 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run build
+      - name: Check if should publish
+        id: version-check
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
 
-      - run: npm publish
+          # Get latest published version from npm
+          LATEST_VERSION=$(npm view svelte-incant version 2>/dev/null || echo "0.0.0")
+          echo "Latest published: $LATEST_VERSION"
+
+          # Compare versions (simple semver comparison)
+          node -e "
+            const current = '$CURRENT_VERSION';
+            const latest = '$LATEST_VERSION';
+            
+            function compareVersions(a, b) {
+              const aParts = a.split('.').map(Number);
+              const bParts = b.split('.').map(Number);
+              
+              for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+                const aPart = aParts[i] || 0;
+                const bPart = bParts[i] || 0;
+                if (aPart > bPart) return 1;
+                if (aPart < bPart) return -1;
+              }
+              return 0;
+            }
+            
+            const isNewer = compareVersions(current, latest) > 0;
+            if (isNewer) {
+              console.log('Version is newer, will publish');
+            } else {
+              console.log('Version not newer, skipping publish');
+              process.exit(1);
+            }
+          "
+
+      - name: Build package
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish
