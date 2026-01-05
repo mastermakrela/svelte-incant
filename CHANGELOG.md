@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.1] - 2026-01-05
+
+- chore: Move docs-only dependencies to devDependencies to reduce package install size
+- chore: Remove Tailwind CSS, tailwind-animate, and prettier-tailwind plugin from production dependencies
+
 ## [0.4.0] - 2026-01-05
 
 - feat: Preserve shortcuts registration order in palette display
