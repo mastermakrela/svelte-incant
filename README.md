@@ -42,6 +42,20 @@ Register keyboard shortcuts with the `Shortcut` component:
 />
 ```
 
+For sequential key combinations (chords), use the `Chord` component. Chords are multi-step sequences where you press one combination (e.g., `Cmd+K`), then another (e.g., `B`) to activate them.
+
+```svelte
+<script>
+	import { Chord } from 'svelte-incant';
+</script>
+
+<Chord
+	steps={[['meta', 'k'], ['b']]}
+	description="Open bookmarks"
+	action={() => console.log('Open bookmarks')}
+/>
+```
+
 For focusing elements (like inputs), use the `Focus` component:
 
 ```svelte
@@ -76,10 +90,24 @@ The `@attach` directive focuses the element it attaches to directly, as opposed 
 ## Features
 
 - **Shortcut Palette**: Press `?` to open the shortcut palette and see all registered shortcuts
+- **Key Chords**: Support for sequential key combinations (e.g., `Cmd+K` then `B`)
 - **Route-specific Shortcuts**: Shortcuts only run when their component is mounted, allowing different shortcuts in different routes
 - **Focus Management**: Easily manage focus states with keyboard shortcuts
 - **Component-based**: Use components or directives to register shortcuts
 - **Framework Agnostic**: Works with any CSS framework or plain CSS using CSS custom properties
+
+## Configuration
+
+The `Palette` component accepts several props for customization:
+
+```svelte
+<Palette position="bottom-right" showToggles={true} />
+```
+
+### Palette Props
+
+- `position`: Controls where the trigger button appears. Options: `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right` (default), or `none` (hides the trigger).
+- `showToggles`: Boolean (default `false`). If `true`, adds a column to the palette allowing users to manually enable/disable specific shortcuts.
 
 ## Customization
 

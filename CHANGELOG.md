@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.0] - 2026-01-19
+
+- feat: Add `Chord` component for sequential keyboard shortcuts (e.g. `Cmd+K`, `B`)
+
 ## [0.4.1] - 2026-01-05
 
 - chore: Move docs-only dependencies to devDependencies to reduce package install size

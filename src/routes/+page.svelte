@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { Focus, Palette, shortcut } from '$lib';
+	import { Chord, Focus, Palette } from '$lib';
 	import ComboboxExample from '$lib/combobox-example.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import Header from '$lib/components/header.svelte';
@@ -49,7 +49,7 @@
 	const attachCode =
 		`<script>
   import { shortcut } from 'svelte-incant';
- <` +
+  <` +
 		`/script>
 
   <input
@@ -60,6 +60,18 @@
     description: 'Focus text input'
    })}
   />`;
+
+	const chordCode =
+		`<script>
+  import { Chord } from 'svelte-incant';
+ <` +
+		`/script>
+
+ <Chord
+  steps={[['meta', 'k'], ['b']]}
+  description="Open bookmarks"
+  action={() => console.log('Open bookmarks')}
+ />`;
 
 	const linkButtonDemoCode = `<div class="grid grid-cols-2 place-items-center gap-8">
 	<Focus keys={['control', 'l']} description="Opens a link" class="rounded">
@@ -159,6 +171,14 @@
 					This focuses the element it attaches to directly, as opposed to the <code>Focus</code>
 					component, which wraps the children in a <code>div</code> and focuses that.
 				</p>
+
+				<p class="">
+					For sequential key combinations (chords), use <code>Chord</code> component. Chords are different
+					from shortcuts - you press one combination (e.g., Cmd+K), then another (e.g., B) to activate
+					them. They take priority over shortcuts on conflicts.
+				</p>
+
+				<CodeBlock language="xml" code={chordCode} />
 			</div>
 
 			<hr class="my-8" />
@@ -238,6 +258,44 @@
 
 			<h3 class="mb-4 text-lg font-medium">Use with complex components</h3>
 			<ComboboxExample />
+
+			<h3 class="mb-4 text-lg font-medium">Key Chords</h3>
+			<p class="text-sm text-muted-foreground">
+				Press <Kbds keys={[['meta', 'k']]} isChord={true} />, then <Kbd.Root>B</Kbd.Root> to open bookmarks.
+				Press <Kbd.Root>Esc</Kbd.Root> to cancel an in-progress chord. Chords timeout after 1.5 seconds
+				if not completed.
+			</p>
+			<Tabs.Root value="example" class="w-full">
+				<Card.Root>
+					<Card.Content class="grid h-80 place-items-center">
+						<Tabs.Content value="example">
+							<div class="space-y-4">
+								<p class="text-center">
+									Try pressing: <Kbds keys={[['meta', 'k']]} isChord={true} /> → <Kbd.Root
+										>B</Kbd.Root
+									>
+								</p>
+								<p class="text-center text-sm text-muted-foreground">Or click the button below:</p>
+								<div class="flex justify-center">
+									<Button onclick={() => alert('Chord triggered!')}>Trigger Chord Manually</Button>
+								</div>
+								<Chord
+									steps={[['meta', 'k'], ['b']]}
+									description="Open bookmarks"
+									action={() => alert('Chord triggered!')}
+								/>
+							</div>
+						</Tabs.Content>
+						<Tabs.Content value="code">
+							<CodeBlock language="xml" code={chordCode} />
+						</Tabs.Content>
+					</Card.Content>
+				</Card.Root>
+				<Tabs.List>
+					<Tabs.Trigger value="example">Example</Tabs.Trigger>
+					<Tabs.Trigger value="code">Code</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
 		</section>
 
 		<!-- Configuration -->

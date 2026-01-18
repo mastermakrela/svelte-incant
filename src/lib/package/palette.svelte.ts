@@ -1,4 +1,5 @@
 import { PressedKeys, activeElement } from 'runed';
+import { chordRegistry } from './chord.svelte.js';
 
 export type Shortcut = {
 	keys: string[][];
@@ -191,6 +192,9 @@ class ShortcutRegistry {
 				const hasModifier = this.hasModifierKey(keyCombo);
 
 				if (shortcut.enabled && (hasModifier || !this.isTypingElement(target))) {
+					if (this.isChordPrefix(keyCombo)) {
+						return;
+					}
 					shortcut.action();
 				}
 			});
@@ -202,6 +206,10 @@ class ShortcutRegistry {
 	private hasModifierKey(keys: string[]): boolean {
 		const modifierKeys = ['control', 'ctrl', 'alt', 'meta', 'command', 'cmd'];
 		return keys.some((key) => modifierKeys.includes(key.toLowerCase()));
+	}
+
+	private isChordPrefix(keys: string[]): boolean {
+		return chordRegistry.isChordPrefix(keys);
 	}
 
 	private isTypingElement(element: Element | null): boolean {

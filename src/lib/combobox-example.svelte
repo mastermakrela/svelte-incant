@@ -80,7 +80,7 @@
 
 <p class="text-sm text-muted-foreground">
 	Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌥</kbd> (alt) to see the focus
-	shortcut hint. Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌘ K</kbd> to focus the
+	shortcut hint. Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌘ J</kbd> to focus the
 	combobox.
 </p>
 
@@ -98,7 +98,7 @@
 								role="combobox"
 								aria-expanded={open}
 								{@attach shortcut({
-									keys: ['meta', 'k'],
+									keys: ['meta', 'j'],
 									description: 'Focus framework combobox'
 								})}
 							>

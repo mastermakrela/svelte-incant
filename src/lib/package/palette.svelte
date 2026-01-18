@@ -12,13 +12,44 @@
 <script lang="ts">
 	import { Keyboard, ToggleLeft, ToggleRight } from '@lucide/svelte';
 	import { PressedKeys } from 'runed';
+	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
+	import { getChordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
 	import { registry, slugify } from './palette.svelte.js';
 	import Shortcut from './shortcut.svelte';
+
+	// Get direct reference to registry for reactive access
+	const _chordRegistry = getChordRegistry();
+	const currentProgress = $derived(_chordRegistry.currentProgress);
+
+	const chords = $derived.by(() => _chordRegistry.getChords());
+
+	const allShortcutsAndChords = $derived.by(() => {
+		const allShortcuts = registry.getShortcuts();
+		const allChords = chords;
+
+		const shortcutsWithChords = allShortcuts.map((s) => ({
+			type: 'shortcut' as const,
+			keys: s.keys,
+			description: s.description,
+			enabled: s.enabled,
+			toggle: () => registry.toggle(s.keys)
+		}));
+
+		const chordsItems = allChords.map((c: ChordType) => ({
+			type: 'chord' as const,
+			keys: c.steps,
+			description: c.description,
+			enabled: c.enabled,
+			toggle: () => _chordRegistry.toggle(c.steps)
+		}));
+
+		return [...shortcutsWithChords, ...chordsItems];
+	});
 
 	let {
 		position = 'bottom-right',
@@ -67,9 +98,26 @@
 	const pressed_keys = new PressedKeys();
 	const all_keys = $derived(pressed_keys.all);
 
+	const chordDisplay = $derived.by(() => {
+		if (!currentProgress) return null;
+		const { steps, currentIndex, expiresAt } = currentProgress;
+		return {
+			completedSteps: steps.slice(0, currentIndex + 1),
+			hasMore: currentIndex < steps.length - 1,
+			expiresAt
+		};
+	});
+
 	const filtered_shortcuts = $derived.by(() => {
 		const _all_keys = all_keys.filter((key) => ['?', '/', ' ', 'tab'].indexOf(key) === -1);
-		return registry.filteredShortcuts(_all_keys);
+		return allShortcutsAndChords.filter((item) => {
+			const matches = item.keys.some((keyCombo: string[]) =>
+				keyCombo.some((key: string) =>
+					_all_keys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
+				)
+			);
+			return matches || _all_keys.length === 0;
+		});
 	});
 
 	const positionStyles = $derived.by(() => {
@@ -138,24 +186,24 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filtered_shortcuts as shortcut (slugify(shortcut.keys))}
+						{#each filtered_shortcuts as item (item.type === 'shortcut' ? slugify(item.keys) : slugifyChord(item.keys))}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={shortcut.keys} />
+									<Kbds keys={item.keys} isChord={item.type === 'chord'} />
 								</Table.Cell>
-								<Table.Cell>{shortcut.description}</Table.Cell>
+								<Table.Cell>{item.description}</Table.Cell>
 								{#if showToggles}
 									<Table.Cell class="incant-palette-cell-actions">
 										<button
 											type="button"
 											class="incant-palette-toggle"
-											onclick={() => registry.toggle(shortcut.keys)}
-											aria-label={shortcut.enabled
+											onclick={() => item.toggle()}
+											aria-label={item.enabled
 												? (texts.toggleLabels?.disable ?? 'Disable shortcut')
 												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
 											tabindex="0"
 										>
-											{#if shortcut.enabled !== false}
+											{#if item.enabled !== false}
 												<ToggleRight class="incant-palette-toggle-icon enabled" />
 											{:else}
 												<ToggleLeft class="incant-palette-toggle-icon disabled" />
@@ -180,6 +228,22 @@
 		</Dialog.Header>
 	</Dialog.Content>
 </Dialog.Root>
+
+{#if chordDisplay}
+	<div class="incant-chord-display">
+		<Kbds keys={chordDisplay.completedSteps} />
+		{#if chordDisplay.hasMore}
+			<span class="incant-chord-display-arrow">→</span>
+			<div class="incant-chord-display-next">
+				{#if chordDisplay.expiresAt}
+					<div class="incant-chord-display-progress">
+						<CircularProgress expiresAt={chordDisplay.expiresAt} />
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	/* CSS Variables Default Values */
@@ -315,5 +379,47 @@
 		padding: 1rem 0;
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
+	}
+
+	/* Chord Display */
+	:global(.incant-chord-display) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-radius: var(--incant-radius-md, 0.375rem);
+		background-color: var(--incant-colors-primary, hsl(240 5.9% 10%));
+		color: var(--incant-colors-primary-foreground, hsl(0 0% 98%));
+		font-size: var(--incant-font-size-sm, 0.875rem);
+		font-weight: 500;
+		white-space: nowrap;
+		box-shadow: var(--incant-shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+		position: fixed;
+		left: 1rem;
+		bottom: 1rem;
+		z-index: 9999;
+	}
+
+	:global(.incant-chord-display-arrow) {
+		font-weight: 500;
+	}
+
+	:global(.incant-chord-display-next) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		min-width: 1.25rem;
+		height: 1.25rem;
+	}
+
+	:global(.incant-chord-display-progress) {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.85rem;
+		opacity: 0.8;
 	}
 </style>
