@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.1] - 2026-02-01
+
+- fix: Disable Dialog.Content portal for `Palette` component so dialog renders inline
+
 ## [0.5.0] - 2026-01-19
 
 - feat: Add `Chord` component for sequential keyboard shortcuts (e.g. `Cmd+K`, `B`)

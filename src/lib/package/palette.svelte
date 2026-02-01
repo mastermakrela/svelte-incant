@@ -166,7 +166,7 @@
 </Tooltip.Provider>
 
 <Dialog.Root bind:open>
-	<Dialog.Content>
+	<Dialog.Content portalProps={{ disabled: true }}>
 		<Dialog.Header>
 			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>
 			<Dialog.Description class="incant-palette-description">
