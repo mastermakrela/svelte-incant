@@ -272,6 +272,10 @@
 		--incant-radius-lg: 0.5rem;
 		--incant-shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 		--incant-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+		--incant-z-index-trigger: 40;
+		--incant-z-index-chord-display: 1000;
+		--incant-z-index-dialog: 50;
+		--incant-z-index-overlay: 50;
 	}
 
 	/* Palette Trigger Button */
@@ -294,6 +298,7 @@
 		outline: none;
 		box-shadow: var(--incant-shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
 		position: fixed;
+		z-index: var(--incant-z-index-trigger, 40);
 	}
 
 	:global(.incant-palette-trigger:hover) {
@@ -397,7 +402,7 @@
 		position: fixed;
 		left: 1rem;
 		bottom: 1rem;
-		z-index: 9999;
+		z-index: var(--incant-z-index-chord-display, 1000);
 	}
 
 	:global(.incant-chord-display-arrow) {

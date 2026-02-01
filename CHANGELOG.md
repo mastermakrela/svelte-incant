@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.2] - 2026-02-01
+
+- feat: Add CSS variables for z-index customization (`--incant-z-index-trigger`, `--incant-z-index-chord-display`, `--incant-z-index-dialog`, `--incant-z-index-overlay`)
+
 ## [0.5.1] - 2026-02-01
 
 - fix: Disable Dialog.Content portal for `Palette` component so dialog renders inline

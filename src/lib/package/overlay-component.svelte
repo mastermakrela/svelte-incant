@@ -41,7 +41,7 @@
 		position: absolute;
 		bottom: 0;
 		left: 50%;
-		z-index: 50;
+		z-index: var(--incant-z-index-overlay, 50);
 		transform: translateX(-50%) translateY(66.666%);
 	}
 </style>

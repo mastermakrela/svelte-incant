@@ -44,7 +44,7 @@
 		position: fixed;
 		left: 50%;
 		top: 50%;
-		z-index: 50;
+		z-index: var(--incant-z-index-dialog, 50);
 		transform: translate(-50%, -50%);
 		width: calc(100% - 2rem);
 		max-width: 32rem;
