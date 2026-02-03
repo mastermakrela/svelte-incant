@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.1] - 2026-02-03
+
+- fix: Dialog max-width changed to `fit-content` to prevent description overflow
+- fix: `Shortcut` and `Chord` components now use `$effect` instead of `onMount` for proper reactivity when props change
+
 ## [0.6.0] - 2026-02-03
 
 - feat: Add programmatic palette control with `openPalette()`, `closePalette()`, `togglePalette()` functions and `paletteState` reactive object
