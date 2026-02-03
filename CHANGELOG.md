@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0] - 2026-02-03
+
+- feat: Add programmatic palette control with `openPalette()`, `closePalette()`, `togglePalette()` functions and `paletteState` reactive object
+- feat: Implement shortcut specificity - more specific shortcuts (e.g., `Shift+F`) now take priority over less specific ones (e.g., `F`)
+- feat: Add `preventDefault` option to shortcuts for preventing browser default behavior
+- fix: Focus hints now stack vertically when space is narrow
+- fix: Modifier keys display first in keyboard hints (e.g., `Ctrl+Shift+F` instead of `F+Ctrl+Shift`)
+
 ## [0.5.2] - 2026-02-01
 
 - feat: Add CSS variables for z-index customization (`--incant-z-index-trigger`, `--incant-z-index-chord-display`, `--incant-z-index-dialog`, `--incant-z-index-overlay`)
