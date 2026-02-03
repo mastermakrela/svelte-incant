@@ -33,6 +33,7 @@ type ShortcutInput = Omit<Shortcut, 'action' | 'keys'> & {
 	keys: string | string[] | string[][];
 	action?: () => void;
 	click?: boolean;
+	preventDefault?: boolean;
 };
 
 function setupAnchor(

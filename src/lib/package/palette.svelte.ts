@@ -1,4 +1,5 @@
 import { PressedKeys, activeElement } from 'runed';
+import { on } from 'svelte/events';
 import { chordRegistry } from './chord.svelte.js';
 
 export type Shortcut = {
@@ -6,6 +7,7 @@ export type Shortcut = {
 	description?: string;
 	action: () => void;
 	enabled?: boolean;
+	preventDefault?: boolean;
 };
 
 export function isArrayOfArrays(keys: unknown): keys is string[][] {
@@ -43,6 +45,11 @@ export function slugify(keys: string | string[] | string[][]): string {
 		.join('|');
 }
 
+// Global config for shortcuts
+const globalConfig = $state({
+	preventDefault: false
+});
+
 class ShortcutRegistry {
 	shortcuts = $state<Record<string, Shortcut>>({});
 	private shortcutOrder: string[] = [];
@@ -51,8 +58,17 @@ class ShortcutRegistry {
 	private pressedKeys = new PressedKeys();
 	private cleanupCallbacks = new Map<string, () => void>();
 	private isListening = false;
+	private preventDefaultCleanups: (() => void)[] = [];
 
 	constructor() {}
+
+	configure(config: { preventDefault?: boolean }): void {
+		if (config.preventDefault !== undefined) {
+			globalConfig.preventDefault = config.preventDefault;
+			// Re-sync listeners to apply new config
+			this.syncKeyboardListeners();
+		}
+	}
 
 	private startListening(): void {
 		if (this.isListening) return;
@@ -186,7 +202,10 @@ class ShortcutRegistry {
 	}
 
 	private setupKeyboardListener(shortcut: Shortcut): () => void {
+		const cleanups: (() => void)[] = [];
+
 		for (const keyCombo of shortcut.keys) {
+			// Set up pressed keys listener for action
 			this.pressedKeys.onKeys(keyCombo, () => {
 				const target = activeElement.current;
 				const hasModifier = this.hasModifierKey(keyCombo);
@@ -195,17 +214,98 @@ class ShortcutRegistry {
 					if (this.isChordPrefix(keyCombo)) {
 						return;
 					}
+					// Check if a more specific shortcut should take priority
+					if (this.hasMoreSpecificMatch(keyCombo)) {
+						return; // Let the more specific shortcut handle this
+					}
 					shortcut.action();
 				}
 			});
+
+			// Set up preventDefault listener if enabled globally or for this shortcut
+			const shouldPreventDefault = shortcut.preventDefault ?? globalConfig.preventDefault;
+			if (shouldPreventDefault && typeof window !== 'undefined') {
+				const cleanup = on(
+					window,
+					'keydown',
+					(event: KeyboardEvent) => {
+						// Check if keys match this shortcut
+						const allPressed = this.pressedKeys.all;
+						const sortedPressed = [...allPressed].sort((a: string, b: string) =>
+							a.localeCompare(b)
+						);
+						const sortedCombo = [...keyCombo].sort((a, b) => a.localeCompare(b));
+
+						if (
+							sortedPressed.length === sortedCombo.length &&
+							sortedPressed.every(
+								(key: string, i: number) => key.toLowerCase() === sortedCombo[i]!.toLowerCase()
+							)
+						) {
+							// Only prevent default if not in typing element (unless has modifier)
+							const target = event.target as Element;
+							const hasModifier = this.hasModifierKey(keyCombo);
+							if (shortcut.enabled && (hasModifier || !this.isTypingElement(target))) {
+								event.preventDefault();
+							}
+						}
+					},
+					{ capture: true }
+				);
+				cleanups.push(cleanup);
+			}
 		}
 
-		return () => {};
+		return () => {
+			for (const cleanup of cleanups) {
+				cleanup();
+			}
+		};
 	}
 
 	private hasModifierKey(keys: string[]): boolean {
 		const modifierKeys = ['control', 'ctrl', 'alt', 'meta', 'command', 'cmd'];
 		return keys.some((key) => modifierKeys.includes(key.toLowerCase()));
+	}
+
+	/**
+	 * Calculate specificity score for a key combination.
+	 * More keys = higher specificity = should take priority.
+	 */
+	private getSpecificity(combo: string[]): number {
+		return combo.length;
+	}
+
+	/**
+	 * Check if there's a more specific shortcut that matches current pressed keys.
+	 * Returns true if the given combo is NOT the most specific match.
+	 */
+	private hasMoreSpecificMatch(combo: string[]): boolean {
+		const currentSpecificity = this.getSpecificity(combo);
+		const allPressed = this.pressedKeys.all;
+
+		// Check all registered shortcuts for a more specific match
+		for (const shortcut of Object.values(this.shortcuts)) {
+			if (!shortcut.enabled) continue;
+
+			for (const otherCombo of shortcut.keys) {
+				const otherSpecificity = this.getSpecificity(otherCombo);
+
+				// Only consider more specific combos (more keys)
+				if (otherSpecificity <= currentSpecificity) continue;
+
+				// Check if the more specific combo is currently pressed
+				const allKeysPresent = otherCombo.every((key) =>
+					allPressed.some((pressed) => pressed.toLowerCase() === key.toLowerCase())
+				);
+
+				if (allKeysPresent) {
+					return true; // Found a more specific match
+				}
+			}
+		}
+
+		return false;
 	}
 
 	private isChordPrefix(keys: string[]): boolean {
@@ -285,4 +385,19 @@ export function remove_shortcut(keys: string | string[] | string[][]): void {
 
 export function toggle_shortcut(keys: string | string[] | string[][]): void {
 	getRegistry().toggle(keys);
+}
+
+// Global palette state for programmatic control
+export const paletteState = $state({ open: false });
+
+export function openPalette(): void {
+	paletteState.open = true;
+}
+
+export function closePalette(): void {
+	paletteState.open = false;
+}
+
+export function togglePalette(): void {
+	paletteState.open = !paletteState.open;
 }

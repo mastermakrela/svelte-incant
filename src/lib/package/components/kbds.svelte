@@ -12,12 +12,37 @@
 
 	type KeyCombination = string[];
 
+	const MODIFIER_KEYS = new Set([
+		'control',
+		'ctrl',
+		'alt',
+		'option',
+		'shift',
+		'meta',
+		'command',
+		'cmd'
+	]);
+
+	function isModifier(key: string): boolean {
+		return MODIFIER_KEYS.has(key.toLowerCase());
+	}
+
+	function sortKeys(keys: string[]): string[] {
+		return [...keys].sort((a, b) => {
+			const aIsModifier = isModifier(a);
+			const bIsModifier = isModifier(b);
+			if (aIsModifier && !bIsModifier) return -1;
+			if (!aIsModifier && bIsModifier) return 1;
+			return 0;
+		});
+	}
+
 	let keyGroups: KeyCombination[] = $derived(
 		typeof keys === 'string'
 			? [[keys]]
 			: Array.isArray(keys) && keys.length > 0 && typeof keys[0] === 'string'
-				? [keys as string[]]
-				: (keys as KeyCombination[])
+				? [sortKeys(keys as string[])]
+				: (keys as KeyCombination[]).map(sortKeys)
 	);
 
 	let isChordMode: boolean = $derived(isChord === true);

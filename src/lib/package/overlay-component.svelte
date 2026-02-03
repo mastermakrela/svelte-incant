@@ -43,5 +43,9 @@
 		left: 50%;
 		z-index: var(--incant-z-index-overlay, 50);
 		transform: translateX(-50%) translateY(66.666%);
+		min-width: max-content;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
 	}
 </style>

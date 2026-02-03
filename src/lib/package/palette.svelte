@@ -19,7 +19,7 @@
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
 	import { getChordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
-	import { registry, slugify } from './palette.svelte.js';
+	import { paletteState, registry, slugify, togglePalette } from './palette.svelte.js';
 	import Shortcut from './shortcut.svelte';
 
 	// Get direct reference to registry for reactive access
@@ -92,7 +92,7 @@
 		};
 	} = $props();
 
-	let open = $state(false);
+	let open = $derived(paletteState.open);
 	let tooltip_open = $state(false);
 
 	const pressed_keys = new PressedKeys();
@@ -142,16 +142,12 @@
 	});
 </script>
 
-<Shortcut
-	keys={[['?'], ['/']]}
-	description={texts.shortcutDescription}
-	action={() => (open = !open)}
-/>
+<Shortcut keys={[['?'], ['/']]} description={texts.shortcutDescription} action={togglePalette} />
 
 <Tooltip.Provider delayDuration={0}>
 	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
 	<Tooltip.Root bind:open={tooltip_open}>
-		<Tooltip.Trigger onclick={() => (open = !open)}>
+		<Tooltip.Trigger onclick={togglePalette}>
 			{#snippet child({ props })}
 				<button {...props} style={positionStyles} class={['incant-palette-trigger']}>
 					<Keyboard />

@@ -7,6 +7,7 @@ export type Chord = {
 	description?: string;
 	action: () => void;
 	enabled?: boolean;
+	preventDefault?: boolean;
 };
 
 export const CHORD_TIMEOUT_MS = 1500;
