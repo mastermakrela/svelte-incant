@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { watch } from 'runed';
 	import { onMount } from 'svelte';
 	import { add_chord, remove_chord } from './chord.svelte.js';
 
@@ -12,7 +13,7 @@
 		action: () => void;
 	} = $props();
 
-	onMount(() => {
+	watch([() => steps, () => description, () => action], () => {
 		add_chord({
 			steps,
 			description,

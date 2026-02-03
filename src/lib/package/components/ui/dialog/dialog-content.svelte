@@ -47,7 +47,7 @@
 		z-index: var(--incant-z-index-dialog, 50);
 		transform: translate(-50%, -50%);
 		width: calc(100% - 2rem);
-		max-width: 32rem;
+		max-width: fit-content;
 		display: grid;
 		gap: var(--incant-spacing-4, 1rem);
 		padding: var(--incant-spacing-6, 1.5rem);
@@ -98,7 +98,7 @@
 
 	@media (min-width: 640px) {
 		:global([data-slot='dialog-content']) {
-			max-width: 32rem;
+			max-width: fit-content;
 		}
 	}
 

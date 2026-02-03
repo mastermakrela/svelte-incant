@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { watch } from 'runed';
 	import { add_shortcut, remove_shortcut } from './palette.svelte.js';
 
 	let {
@@ -12,7 +12,7 @@
 		action: () => void;
 	} = $props();
 
-	onMount(() => {
+	watch([() => keys, () => description, () => action], () => {
 		add_shortcut({
 			keys,
 			description,
