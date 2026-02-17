@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2026-02-17
+
+- feat: Add `formatShortcut` prop to `Palette` for custom keyboard shortcut display formatting
+- feat: Add `preventDefault` prop to `Shortcut` component
+- feat: Add `getKeyLabel()` utility for platform-aware key labels (⌘ on Mac, Win on Windows)
+
 ## [0.6.1] - 2026-02-03
 
 - fix: Dialog max-width changed to `fit-content` to prevent description overflow

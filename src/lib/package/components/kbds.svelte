@@ -1,14 +1,18 @@
 <script lang="ts">
 	import * as Kbd from './ui/kbd/index.js';
-	import { keyToSymbol } from '../utils.js';
+	import { getKeyLabel, getIsMac } from '../utils.js';
 
 	let {
 		keys,
-		isChord = false
+		isChord = false,
+		formatShortcut
 	}: {
 		keys: string | string[] | string[][];
 		isChord?: boolean;
+		formatShortcut?: (keys: string[][], isChord: boolean, isMac: boolean) => string;
 	} = $props();
+
+	const isMac = getIsMac();
 
 	type KeyCombination = string[];
 
@@ -63,22 +67,32 @@
 	);
 
 	const formattedParts = $derived.by(() => {
-		const combos = keyGroups.map((group) => group.map(keyToSymbol).join(' '));
+		const combos = keyGroups.map((group) => group.map((key) => getKeyLabel(key, isMac)).join(' '));
 		return formatter.formatToParts(combos);
 	});
+
+	const customFormatted = $derived(
+		formatShortcut ? formatShortcut(keyGroups, isChordMode, isMac) : null
+	);
 </script>
 
-<Kbd.Group class="incant-kbds-container">
-	{#each formattedParts as part (part)}
-		{#if part.type === 'element'}
-			<Kbd.Root>{part.value}</Kbd.Root>
-		{:else if isChordMode}
-			<span class="incant-kbds-chord-separator">→</span>
-		{:else}
-			<span class="incant-kbds-separator">{part.value}</span>
-		{/if}
-	{/each}
-</Kbd.Group>
+{#if customFormatted !== null}
+	<Kbd.Group class="incant-kbds-container">
+		<Kbd.Root>{customFormatted}</Kbd.Root>
+	</Kbd.Group>
+{:else}
+	<Kbd.Group class="incant-kbds-container">
+		{#each formattedParts as part (part)}
+			{#if part.type === 'element'}
+				<Kbd.Root>{part.value}</Kbd.Root>
+			{:else if isChordMode}
+				<span class="incant-kbds-chord-separator">→</span>
+			{:else}
+				<span class="incant-kbds-separator">{part.value}</span>
+			{/if}
+		{/each}
+	</Kbd.Group>
+{/if}
 
 <style>
 	.incant-kbds-separator {

@@ -54,6 +54,7 @@
 	let {
 		position = 'bottom-right',
 		showToggles = false,
+		formatShortcut,
 		texts = {
 			shortcutDescription: 'Open shortcut palette',
 			tooltipContent: 'Press ?',
@@ -74,6 +75,7 @@
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
+		formatShortcut?: (keys: string[][], isChord: boolean, isMac: boolean) => string;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -185,7 +187,7 @@
 						{#each filtered_shortcuts as item (item.type === 'shortcut' ? slugify(item.keys) : slugifyChord(item.keys))}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={item.keys} isChord={item.type === 'chord'} />
+									<Kbds keys={item.keys} isChord={item.type === 'chord'} {formatShortcut} />
 								</Table.Cell>
 								<Table.Cell>{item.description}</Table.Cell>
 								{#if showToggles}
@@ -212,7 +214,7 @@
 							<Table.Row>
 								<Table.Cell colspan={showToggles ? 3 : 2} class="incant-palette-empty-state">
 									{texts.emptyState}
-									<Kbds keys={all_keys} />
+									<Kbds keys={all_keys} {formatShortcut} />
 
 									.
 								</Table.Cell>
@@ -227,7 +229,7 @@
 
 {#if chordDisplay}
 	<div class="incant-chord-display">
-		<Kbds keys={chordDisplay.completedSteps} />
+		<Kbds keys={chordDisplay.completedSteps} isChord={true} {formatShortcut} />
 		{#if chordDisplay.hasMore}
 			<span class="incant-chord-display-arrow">→</span>
 			<div class="incant-chord-display-next">

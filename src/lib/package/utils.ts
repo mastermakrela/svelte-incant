@@ -35,9 +35,53 @@ export function keyToSymbol(key: string): string {
 	return symbols[lower] ?? key.toUpperCase();
 }
 
-// export const isMac = $derived(
-// 	typeof navigator !== 'undefined' ? navigator.platform.toUpperCase().includes('MAC') : false
-// );
+export function getKeyLabel(key: string, isMac: boolean): string {
+	const macSymbols: Record<string, string> = {
+		control: '⌃',
+		ctrl: '⌃',
+		alt: '⌥',
+		option: '⌥',
+		shift: '⇧',
+		meta: '⌘',
+		command: '⌘',
+		cmd: '⌘'
+	};
+
+	const textLabels: Record<string, string> = {
+		control: 'Ctrl',
+		ctrl: 'Ctrl',
+		alt: 'Alt',
+		option: 'Alt',
+		shift: 'Shift',
+		meta: 'Win',
+		command: 'Win',
+		cmd: 'Win',
+		enter: 'Enter',
+		return: 'Enter',
+		backspace: 'Backspace',
+		delete: 'Delete',
+		escape: 'Esc',
+		esc: 'Esc',
+		tab: 'Tab',
+		space: 'Space',
+		up: '↑',
+		down: '↓',
+		left: '←',
+		right: '→',
+		arrowup: '↑',
+		arrowdown: '↓',
+		arrowleft: '←',
+		arrowright: '→'
+	};
+
+	const lower = key.toLowerCase();
+
+	if (isMac && macSymbols[lower]) {
+		return macSymbols[lower];
+	}
+
+	return textLabels[lower] ?? key.toUpperCase();
+}
 
 export function getIsMac(): boolean {
 	return typeof navigator !== 'undefined'

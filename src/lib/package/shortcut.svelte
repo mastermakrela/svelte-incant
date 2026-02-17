@@ -5,18 +5,21 @@
 	let {
 		keys,
 		description,
-		action
+		action,
+		preventDefault
 	}: {
 		keys: string | string[] | string[][];
 		description?: string;
 		action: () => void;
+		preventDefault?: boolean;
 	} = $props();
 
-	watch([() => keys, () => description, () => action], () => {
+	watch([() => keys, () => description, () => action, () => preventDefault], () => {
 		add_shortcut({
 			keys,
 			description,
-			action
+			action,
+			preventDefault
 		});
 
 		return () => {

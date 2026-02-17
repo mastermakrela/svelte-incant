@@ -13,4 +13,4 @@ export {
 	shortcuts,
 	togglePalette
 } from './palette.svelte.js';
-export { getIsMac, keyToSymbol } from './utils';
+export { getIsMac, getKeyLabel, keyToSymbol } from './utils';
