@@ -1,56 +1,45 @@
 <script lang="ts">
+	import { formatForDisplay, normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
+	import { parseSequence, tokensToHotkey, type SequenceSpec } from '../hotkey-utils.js';
 	import * as Kbd from './ui/kbd/index.js';
-	import { keyToSymbol } from '../utils.js';
 
 	let {
 		keys,
 		isChord = false
 	}: {
-		keys: string | string[] | string[][];
+		keys: Hotkey | SequenceSpec | string[] | string[][];
 		isChord?: boolean;
 	} = $props();
 
-	type KeyCombination = string[];
+	function toHotkeyGroups(
+		value: Hotkey | SequenceSpec | string[] | string[][],
+		chordMode: boolean
+	): Hotkey[] {
+		if (typeof value === 'string') {
+			if (chordMode) {
+				return parseSequence(value as SequenceSpec);
+			}
+			return [normalizeHotkey(value ) ];
+		}
 
-	const MODIFIER_KEYS = new Set([
-		'control',
-		'ctrl',
-		'alt',
-		'option',
-		'shift',
-		'meta',
-		'command',
-		'cmd'
-	]);
+		if (value.length === 0) return [];
 
-	function isModifier(key: string): boolean {
-		return MODIFIER_KEYS.has(key.toLowerCase());
+		if (typeof value[0] === 'string') {
+			if (chordMode) {
+				return (value []).map((step) => normalizeHotkey(step) );
+			}
+			return [tokensToHotkey(value as string[])];
+		}
+
+		return (value as string[][]).map((group) => tokensToHotkey(group));
 	}
 
-	function sortKeys(keys: string[]): string[] {
-		return [...keys].sort((a, b) => {
-			const aIsModifier = isModifier(a);
-			const bIsModifier = isModifier(b);
-			if (aIsModifier && !bIsModifier) return -1;
-			if (!aIsModifier && bIsModifier) return 1;
-			return 0;
-		});
-	}
-
-	let keyGroups: KeyCombination[] = $derived(
-		typeof keys === 'string'
-			? [[keys]]
-			: Array.isArray(keys) && keys.length > 0 && typeof keys[0] === 'string'
-				? [sortKeys(keys as string[])]
-				: (keys as KeyCombination[]).map(sortKeys)
-	);
-
-	let isChordMode: boolean = $derived(isChord === true);
+	let hotkeyGroups: Hotkey[] = $derived.by(() => toHotkeyGroups(keys, isChord));
 
 	const formatter: Intl.ListFormat = $derived(
 		new Intl.ListFormat(
 			undefined,
-			isChordMode
+			isChord
 				? {
 						style: 'narrow',
 						type: 'unit'
@@ -63,7 +52,7 @@
 	);
 
 	const formattedParts = $derived.by(() => {
-		const combos = keyGroups.map((group) => group.map(keyToSymbol).join(' '));
+		const combos = hotkeyGroups.map((group) => formatForDisplay(group));
 		return formatter.formatToParts(combos);
 	});
 </script>
@@ -72,7 +61,7 @@
 	{#each formattedParts as part (part)}
 		{#if part.type === 'element'}
 			<Kbd.Root>{part.value}</Kbd.Root>
-		{:else if isChordMode}
+		{:else if isChord}
 			<span class="incant-kbds-chord-separator">→</span>
 		{:else}
 			<span class="incant-kbds-separator">{part.value}</span>

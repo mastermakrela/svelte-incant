@@ -36,11 +36,16 @@ Register keyboard shortcuts with the `Shortcut` component:
 </script>
 
 <Shortcut
-	keys={['control', 's']}
+	keys="control+s"
 	description="Save document"
-	action={() => console.log('Save document')}
+	action={(keys) => console.log('Save document', keys)}
 />
 ```
+
+The `action` callback receives the matched key combo (`string[]`), which is helpful when multiple combos share one description (e.g., arrow keys for navigation).
+
+Hotkeys use strict TanStack-style plus notation (`Control+Shift+K`).  
+Sequences (used by `Chord`) use space-separated steps (`Control+K B`).
 
 For sequential key combinations (chords), use the `Chord` component. Chords are multi-step sequences where you press one combination (e.g., `Cmd+K`), then another (e.g., `B`) to activate them.
 
@@ -50,7 +55,7 @@ For sequential key combinations (chords), use the `Chord` component. Chords are 
 </script>
 
 <Chord
-	steps={[['meta', 'k'], ['b']]}
+	steps="Control+K B"
 	description="Open bookmarks"
 	action={() => console.log('Open bookmarks')}
 />
@@ -63,7 +68,7 @@ For focusing elements (like inputs), use the `Focus` component:
 	import { Focus } from 'svelte-incant';
 </script>
 
-<Focus keys={['control', 'e']} description="Focus search input">
+<Focus keys="control+e" description="Focus search input">
 	<input type="text" placeholder="Search..." />
 </Focus>
 ```
@@ -79,7 +84,7 @@ Or attach shortcuts directly to an element using the `@attach` directive:
 	type="text"
 	placeholder="Type something..."
 	{@attach shortcut({
-		keys: ['meta', 'i'],
+		keys: 'meta+i',
 		description: 'Focus text input'
 	})}
 />

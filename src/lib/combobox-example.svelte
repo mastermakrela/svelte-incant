@@ -59,7 +59,7 @@
           role="combobox"
           aria-expanded={open}
           {@attach shortcut({
-            keys: ['meta', 'k'],
+            keys: 'meta+k',
             description: 'Focus framework combobox'
           })}
         >
@@ -98,7 +98,7 @@
 								role="combobox"
 								aria-expanded={open}
 								{@attach shortcut({
-									keys: ['meta', 'j'],
+									keys: 'Meta+J',
 									description: 'Focus framework combobox'
 								})}
 							>

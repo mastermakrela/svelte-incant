@@ -11,22 +11,22 @@
 
 <script lang="ts">
 	import { Keyboard, ToggleLeft, ToggleRight } from '@lucide/svelte';
-	import { PressedKeys } from 'runed';
+	import { onMount } from 'svelte';
+	import { chordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
-	import { getChordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
-	import { paletteState, registry, slugify, togglePalette } from './palette.svelte.js';
+	import { toHotkeyTokens, toSequenceStepTokens } from './hotkey-utils.js';
+	import { paletteState, registry, togglePalette } from './palette.svelte.js';
+	import { subscribePressedKeys } from './pressed-keys.svelte.js';
 	import Shortcut from './shortcut.svelte';
 
-	// Get direct reference to registry for reactive access
-	const _chordRegistry = getChordRegistry();
-	const currentProgress = $derived(_chordRegistry.currentProgress);
+	const currentProgress = $derived(chordRegistry.currentProgress);
 
-	const chords = $derived.by(() => _chordRegistry.getChords());
+	const chords = $derived.by(() => chordRegistry.getChords());
 
 	const allShortcutsAndChords = $derived.by(() => {
 		const allShortcuts = registry.getShortcuts();
@@ -45,7 +45,7 @@
 			keys: c.steps,
 			description: c.description,
 			enabled: c.enabled,
-			toggle: () => _chordRegistry.toggle(c.steps)
+			toggle: () => chordRegistry.toggle(c.steps)
 		}));
 
 		return [...shortcutsWithChords, ...chordsItems];
@@ -92,11 +92,15 @@
 		};
 	} = $props();
 
-	let open = $derived(paletteState.open);
 	let tooltip_open = $state(false);
 
-	const pressed_keys = new PressedKeys();
-	const all_keys = $derived(pressed_keys.all);
+	let all_keys = $state<string[]>([]);
+
+	onMount(() => {
+		return subscribePressedKeys((keys) => {
+			all_keys = keys;
+		});
+	});
 
 	const chordDisplay = $derived.by(() => {
 		if (!currentProgress) return null;
@@ -111,10 +115,12 @@
 	const filtered_shortcuts = $derived.by(() => {
 		const _all_keys = all_keys.filter((key) => ['?', '/', ' ', 'tab'].indexOf(key) === -1);
 		return allShortcutsAndChords.filter((item) => {
-			const matches = item.keys.some((keyCombo: string[]) =>
-				keyCombo.some((key: string) =>
-					_all_keys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
-				)
+			const tokens =
+				item.type === 'shortcut'
+					? toHotkeyTokens(item.keys)
+					: toSequenceStepTokens(item.keys).flat();
+			const matches = tokens.some((key) =>
+				_all_keys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
 			);
 			return matches || _all_keys.length === 0;
 		});
@@ -142,7 +148,7 @@
 	});
 </script>
 
-<Shortcut keys={[['?'], ['/']]} description={texts.shortcutDescription} action={togglePalette} />
+<Shortcut keys="/" description={texts.shortcutDescription} action={togglePalette} />
 
 <Tooltip.Provider delayDuration={0}>
 	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
@@ -161,7 +167,7 @@
 	</Tooltip.Root>
 </Tooltip.Provider>
 
-<Dialog.Root bind:open>
+<Dialog.Root bind:open={paletteState.open}>
 	<Dialog.Content portalProps={{ disabled: true }}>
 		<Dialog.Header>
 			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>
@@ -182,7 +188,7 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filtered_shortcuts as item (item.type === 'shortcut' ? slugify(item.keys) : slugifyChord(item.keys))}
+						{#each filtered_shortcuts as item (item.type === 'shortcut' ? item.keys : slugifyChord(item.keys))}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
 									<Kbds keys={item.keys} isChord={item.type === 'chord'} />
@@ -227,7 +233,7 @@
 
 {#if chordDisplay}
 	<div class="incant-chord-display">
-		<Kbds keys={chordDisplay.completedSteps} />
+		<Kbds keys={chordDisplay.completedSteps} isChord={true} />
 		{#if chordDisplay.hasMore}
 			<span class="incant-chord-display-arrow">→</span>
 			<div class="incant-chord-display-next">

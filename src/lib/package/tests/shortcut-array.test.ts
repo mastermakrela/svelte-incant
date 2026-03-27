@@ -1,100 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { isArrayOfArrays, normalizeKeys, slugify } from '../palette.svelte.js';
+import { normalizeHotkey } from '@tanstack/hotkeys';
+import { parseSequence, toHotkeyTokens } from '../hotkey-utils.js';
 
-describe('Shortcut Array Functionality', () => {
-	describe('isArrayOfArrays', () => {
-		it('should identify string[][] correctly', () => {
-			expect(isArrayOfArrays([['a'], ['b']])).toBe(true);
-			expect(
-				isArrayOfArrays([
-					['meta', 'k'],
-					['ctrl', 'k']
-				])
-			).toBe(true);
-		});
-
-		it('should reject non-arrays', () => {
-			expect(isArrayOfArrays('a')).toBe(false);
-			expect(isArrayOfArrays(['a', 'b'])).toBe(false);
-			expect(isArrayOfArrays(null)).toBe(false);
-			expect(isArrayOfArrays(undefined)).toBe(false);
+describe('Shortcut Spec Functionality', () => {
+	describe('normalizeHotkey', () => {
+		it('keeps canonical hotkeys stable', () => {
+			expect(normalizeHotkey('Control+S')).toBe('Control+S');
+			expect(normalizeHotkey('Shift+Meta+K')).toBe('Shift+Meta+K');
 		});
 	});
 
-	describe('normalizeKeys', () => {
-		it('should handle strings', () => {
-			expect(normalizeKeys('test')).toStrictEqual([['test']]);
-			expect(normalizeKeys('?')).toStrictEqual([['?']]);
-		});
-
-		it('should handle string arrays', () => {
-			expect(normalizeKeys(['meta', 'k'])).toStrictEqual([['k', 'meta']]);
-			expect(normalizeKeys(['ctrl', 'shift', 't'])).toStrictEqual([['ctrl', 'shift', 't']]);
-		});
-
-		it('should sort keys within combos', () => {
-			expect(normalizeKeys(['control', 'a'])).toStrictEqual([['a', 'control']]);
-			expect(normalizeKeys(['z', 'a', 'm'])).toStrictEqual([['a', 'm', 'z']]);
-		});
-
-		it('should handle string[][] arrays', () => {
-			expect(normalizeKeys([['?'], ['/']])).toStrictEqual([['?'], ['/']]);
-			expect(
-				normalizeKeys([
-					['meta', 'k'],
-					['ctrl', 'k']
-				])
-			).toStrictEqual([
-				['k', 'meta'],
-				['ctrl', 'k']
-			]);
-		});
-
-		it('should sort keys within each combo in string[][]', () => {
-			expect(
-				normalizeKeys([
-					['control', 'a'],
-					['a', 'control']
-				])
-			).toStrictEqual([
-				['a', 'control'],
-				['a', 'control']
-			]);
+	describe('toHotkeyTokens', () => {
+		it('returns normalized token arrays used by action callbacks', () => {
+			expect(toHotkeyTokens('Control+S')).toStrictEqual(['control', 's']);
+			expect(toHotkeyTokens('Shift+K')).toStrictEqual(['k', 'shift']);
 		});
 	});
 
-	describe('slugify', () => {
-		it('should handle strings', () => {
-			expect(slugify('test')).toBe('test');
-			expect(slugify('test string')).toBe('test-string');
+	describe('parseSequence', () => {
+		it('normalizes sequence steps', () => {
+			expect(parseSequence('control+s meta+shift+k')).toStrictEqual([
+				'Control+S',
+				'Shift+Meta+K'
+			]);
 		});
 
-		it('should handle string arrays', () => {
-			expect(slugify(['meta', 'k'])).toBe('k-meta');
-		});
-
-		it('should sort keys before slugifying', () => {
-			expect(slugify(['control', 'a'])).toBe('a-control');
-			expect(slugify(['z', 'a', 'm'])).toBe('a-m-z');
-		});
-
-		it('should handle string[][] arrays', () => {
-			expect(slugify([['?'], ['/']])).toBe('?|/');
-			expect(
-				slugify([
-					['meta', 'k'],
-					['ctrl', 'k']
-				])
-			).toBe('k-meta|ctrl-k');
-		});
-
-		it('should handle multiple alternative shortcuts', () => {
-			expect(
-				slugify([
-					['control', 's'],
-					['meta', 's']
-				])
-			).toBe('control-s|meta-s');
+		it('rejects empty sequences', () => {
+			expect(() => parseSequence('')).toThrow(/sequence spec cannot be empty/);
 		});
 	});
 });

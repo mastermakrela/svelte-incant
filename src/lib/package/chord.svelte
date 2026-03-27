@@ -1,19 +1,19 @@
 <script lang="ts">
 	import { watch } from 'runed';
-	import { onMount } from 'svelte';
 	import { add_chord, remove_chord } from './chord.svelte.js';
+	import type { SequenceSpec } from './hotkey-utils.js';
 
 	let {
 		steps,
 		description,
 		action
 	}: {
-		steps: string[][];
+		steps: SequenceSpec;
 		description?: string;
 		action: () => void;
 	} = $props();
 
-	watch([() => steps, () => description, () => action], () => {
+	watch([() => steps, () => description, () => action], ([steps, description, action]) => {
 		add_chord({
 			steps,
 			description,

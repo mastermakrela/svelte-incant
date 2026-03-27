@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0] - 2026-02-13
+
+- feat: Migrate runtime hotkey engine to `@tanstack/hotkeys`
+- feat: Replace custom shortcut/chord DSL with strict TanStack-style specs (breaking)
+- feat: Remove `slugify` helper API and use normalized hotkey strings directly (breaking)
+- feat: Track chord progress with timeout reset and Escape cancel
+- docs: Update examples and package docs to `Control+K` / `Mod+K B` syntax
+- test: Rewrite shortcut and chord unit coverage for strict DSL behavior
+
+## [0.7.0] - 2026-02-04
+
+- feat: Replace shortcut and chord definitions with plus-notation key specs (breaking)
+- feat: Normalize key specs to `KeyboardEvent.key` tokens with aliases
+- chore: Update docs and examples to string-based key specs
+
+## [0.6.2] - 2026-02-04
+
+- feat: Pass matched key combo to shortcut action callback
+
 ## [0.6.1] - 2026-02-03
 
 - fix: Dialog max-width changed to `fit-content` to prevent description overflow

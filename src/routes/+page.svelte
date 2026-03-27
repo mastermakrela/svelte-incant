@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import { Chord, Focus, Palette } from '$lib';
 	import ComboboxExample from '$lib/combobox-example.svelte';
@@ -31,7 +32,7 @@
 		`/script>
 
  <Shortcut
-  keys={['control', 's']}
+  keys="control+s"
   description="Save document"
   action={() => console.log('Save document')}
  />`;
@@ -42,7 +43,7 @@
  <` +
 		`/script>
 
- <Focus keys={['control', 'e']} description="Focus search input">
+ <Focus keys="control+e" description="Focus search input">
   <input type="text" placeholder="Search..." />
  </Focus>`;
 
@@ -56,7 +57,7 @@
    type="text"
    placeholder="Type something..."
    {@attach shortcut({
-    keys: ['meta', 'i'],
+    keys: 'meta+i',
     description: 'Focus text input'
    })}
   />`;
@@ -68,18 +69,18 @@
 		`/script>
 
  <Chord
-  steps={[['meta', 'k'], ['b']]}
+  steps="Mod+K B"
   description="Open bookmarks"
   action={() => console.log('Open bookmarks')}
  />`;
 
 	const linkButtonDemoCode = `<div class="grid grid-cols-2 place-items-center gap-8">
-	<Focus keys={['control', 'l']} description="Opens a link" class="rounded">
+	<Focus keys="control+l" description="Opens a link" class="rounded">
 		<Button href="https://mastermakrela.com" target="_blank" variant="link">
 			Link
 		</Button>
 	</Focus>
-	<Focus keys={['control', 'b']} description="Clicks a button" class="rounded">
+	<Focus keys="control+b" description="Clicks a button" class="rounded">
 		<Button onclick={() => alert('Button clicked!')}>Button</Button>
 	</Focus>
 </div>`;
@@ -91,7 +92,7 @@
  <` +
 		`/script>
 
-  <Focus keys={['control', 'e']} description="Focus search input">
+  <Focus keys="control+e" description="Focus search input">
     <Input type="text" placeholder="Search..." />
   </Focus>`;
 
@@ -211,12 +212,12 @@
 					<Card.Content class="grid h-80 place-items-center">
 						<Tabs.Content value="example">
 							<div class="grid grid-cols-2 place-items-center gap-8">
-								<Focus keys={['control', 'l']} description="Opens a link" class="rounded">
+								<Focus keys="Control+L" description="Opens a link" class="rounded">
 									<Button href="https://mastermakrela.com" target="_blank" variant="link">
 										Link
 									</Button>
 								</Focus>
-								<Focus keys={['control', 'b']} description="Clicks a button" class="rounded">
+								<Focus keys="Control+B" description="Clicks a button" class="rounded">
 									<Button onclick={() => alert('Button clicked!')}>Button</Button>
 								</Focus>
 							</div>
@@ -235,13 +236,13 @@
 			<h3 class="mb-4 text-lg font-medium">Use with inputs</h3>
 			<p class="text-sm text-muted-foreground">
 				Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌥</kbd> (alt) to see the
-				focus shortcut hint. Or press <Kbds keys={['control', 'e']} /> to focus the input below.
+				focus shortcut hint. Or press <Kbds keys="control+e" /> to focus the input below.
 			</p>
 			<Tabs.Root value="example" class="w-full">
 				<Card.Root>
 					<Card.Content class="grid h-80 place-items-center">
 						<Tabs.Content value="example">
-							<Focus keys={['control', 'e']} description="Focus search input" class="rounded">
+							<Focus keys="Control+E" description="Focus search input" class="rounded">
 								<Input type="text" placeholder="Search..." />
 							</Focus>
 						</Tabs.Content>
@@ -261,9 +262,9 @@
 
 			<h3 class="mb-4 text-lg font-medium">Key Chords</h3>
 			<p class="text-sm text-muted-foreground">
-				Press <Kbds keys={[['meta', 'k']]} isChord={true} />, then <Kbd.Root>B</Kbd.Root> to open bookmarks.
-				Press <Kbd.Root>Esc</Kbd.Root> to cancel an in-progress chord. Chords timeout after 1.5 seconds
-				if not completed.
+				Press <Kbds keys="Mod+K" />, then <Kbd.Root>B</Kbd.Root> to open bookmarks. Press
+				<Kbd.Root>Esc</Kbd.Root> to cancel an in-progress chord. Chords timeout after 1.5 seconds if not
+				completed.
 			</p>
 			<Tabs.Root value="example" class="w-full">
 				<Card.Root>
@@ -271,16 +272,14 @@
 						<Tabs.Content value="example">
 							<div class="space-y-4">
 								<p class="text-center">
-									Try pressing: <Kbds keys={[['meta', 'k']]} isChord={true} /> → <Kbd.Root
-										>B</Kbd.Root
-									>
+									Try pressing: <Kbds keys="Mod+K" /> → <Kbd.Root>B</Kbd.Root>
 								</p>
 								<p class="text-center text-sm text-muted-foreground">Or click the button below:</p>
 								<div class="flex justify-center">
 									<Button onclick={() => alert('Chord triggered!')}>Trigger Chord Manually</Button>
 								</div>
 								<Chord
-									steps={[['meta', 'k'], ['b']]}
+									steps="Mod+K B"
 									description="Open bookmarks"
 									action={() => alert('Chord triggered!')}
 								/>
@@ -373,7 +372,8 @@
 				>
 			</p>
 			<p>
-				<a href="/llms.txt" target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly documentation
+				<a href={resolve('/llms.txt')} target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly
+				documentation
 			</p>
 		</footer>
 	</main>

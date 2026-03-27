@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
 	import type { Snippet } from 'svelte';
-	import { shortcut } from './attachment.svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import type { ClassValue } from 'svelte/elements';
-	import { shortcuts, slugify } from './palette.svelte.js';
+	import { shortcut } from './attachment.svelte';
+	import { shortcuts } from './palette.svelte.js';
 
 	let {
 		keys,
@@ -13,7 +15,7 @@
 		class: className,
 		click = true
 	}: {
-		keys: string | string[] | string[][];
+		keys: Hotkey;
 		description?: string;
 		element?: HTMLElement;
 		children: Snippet;
@@ -22,27 +24,18 @@
 		click?: boolean;
 	} = $props();
 
-	let container: HTMLElement;
+	let container: HTMLDivElement | undefined;
 
-	// Check if shortcut is enabled to control focus ring
-	const shortcut_slug = $derived.by(() => slugify(keys));
-	const shortcut_enabled = $derived.by(() => {
-		const registered_shortcut = shortcuts[shortcut_slug];
-		// Default to enabled if shortcut not found (backward compatibility)
-		return registered_shortcut?.enabled !== false;
-	});
+	const shortcut_slug = $derived(normalizeHotkey(keys));
+	const shortcut_enabled = $derived(shortcuts[shortcut_slug]?.enabled !== false);
 
-	function focusChild() {
+	function focusChild(_keys?: string[]) {
 		const targetElement =
-			element ||
-			(() => {
-				// Try to find first focusable element
-				const focusable = container.querySelector<HTMLElement>(
-					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-				);
-
-				return focusable || container;
-			})();
+			element ??
+			container?.querySelector<HTMLElement>(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+			) ??
+			container;
 
 		if (targetElement) {
 			targetElement.focus();

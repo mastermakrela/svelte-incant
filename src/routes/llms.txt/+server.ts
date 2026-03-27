@@ -5,7 +5,7 @@ export async function GET() {
 
 ## Package Information
 Name: svelte-incant
-Version: 0.4.0
+Version: 0.8.0
 Description: A keyboard shortcut management library for Svelte 5
 Repository: https://github.com/mastermakrela/svelte-incant
 Documentation: https://svelte-incant.mastermakrela.com/
@@ -14,6 +14,7 @@ NPM: https://www.npmjs.com/package/svelte-incant
 ## Quick Overview
 Svelte Incant is a modern keyboard shortcut management library designed specifically for Svelte 5. It provides:
 - Shortcut Palette component for displaying all registered shortcuts
+- Chord component for multi-step key sequences
 - Focus management for keyboard navigation
 - Route-specific shortcuts that only work when components are mounted
 - Directive-based shortcut attachment (@attach)
@@ -52,7 +53,7 @@ Usage:
   import { Focus } from 'svelte-incant';
 </script>
 
-<Focus keys={['control', 'e']} description="Focus search input">
+<Focus keys="control+e" description="Focus search input">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -67,11 +68,31 @@ Usage:
 </script>
 
 <Shortcut
-  keys={['control', 's']}
+  keys="control+s"
   description="Save document"
   action={() => console.log('Save document')}
 />
 \`\`\`
+
+### Chord Component
+Registers multi-step sequences (TanStack syntax with space-separated steps).
+
+Usage:
+\`\`\`svelte
+<script>
+  import { Chord } from 'svelte-incant';
+</script>
+
+<Chord
+  steps="Mod+K B"
+  description="Open bookmarks"
+  action={() => console.log('Open bookmarks')}
+/>
+\`\`\`
+
+### Hotkey Syntax
+- Single hotkeys use strict TanStack DSL, e.g. \`Control+S\`, \`Mod+K\`, \`Shift+?\`
+- Chord sequences are hotkeys separated by spaces, e.g. \`Mod+K B\`
 
 ### @attach Directive
 Attaches shortcuts directly to elements without wrapper divs.
@@ -86,7 +107,7 @@ Usage:
   type="text"
   placeholder="Type something..."
   {@attach shortcut({
-    keys: ['meta', 'i'],
+    keys: 'meta+i',
     description: 'Focus text input'
   })}
 />
@@ -151,9 +172,8 @@ The library uses CSS custom properties for theming:
 - Palette: Component for shortcut overlay
 - Focus: Component for focus management
 - Shortcut: Component for registering shortcuts
+- Chord: Component for sequence shortcuts
 - shortcut: Directive for attaching shortcuts
-- getIsMac(): Utility function to detect macOS
-- keyToSymbol(): Utility function for key symbol conversion
 
 ### Peer Dependencies
 - svelte: ^5.0.0
@@ -169,6 +189,7 @@ The library uses CSS custom properties for theming:
 ### Common Patterns
 - Use Focus for input fields and search boxes
 - Use Shortcut for actions like save, copy, paste
+- Use Chord for command-palette style flows (e.g. \`Mod+K B\`)
 - Use @attach for elements that shouldn't be wrapped
 - Configure Palette position based on your UI design
 
@@ -182,11 +203,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Shortcut keys={['control', 's']} description="Save" action={save} />
-<Shortcut keys={['control', 'z']} description="Undo" action={undo} />
-<Shortcut keys={['control', 'y']} description="Redo" action={redo} />
+<Shortcut keys="control+s" description="Save" action={save} />
+<Shortcut keys="control+z" description="Undo" action={undo} />
+<Shortcut keys="control+y" description="Redo" action={redo} />
 
-<Focus keys={['control', 'f']} description="Find">
+<Focus keys="control+f" description="Find">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -199,11 +220,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Focus keys={['alt', 'h']} description="Go home">
+<Focus keys="alt+h" description="Go home">
   <a href="/">Home</a>
 </Focus>
 
-<Focus keys={['alt', 'a']} description="Go to about">
+<Focus keys="alt+a" description="Go to about">
   <a href="/about">About</a>
 </Focus>
 \`\`\`
@@ -227,7 +248,7 @@ https://github.com/mastermakrela/svelte-incant/blob/main/CONTRIBUTING.md
 
 ---
 Generated on: ${new Date().toISOString()}
-Package: svelte-incant v0.4.0
+Package: svelte-incant v0.8.0
 This file is designed to help LLMs understand and use this package effectively.
 `;
 

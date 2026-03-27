@@ -1,9 +1,16 @@
-import { PressedKeys } from 'runed';
+import {
+	getSequenceManager,
+	matchesKeyboardEvent,
+	normalizeHotkey,
+	type Hotkey,
+	type SequenceOptions
+} from '@tanstack/hotkeys';
 import { on } from 'svelte/events';
 import { SvelteSet } from 'svelte/reactivity';
+import { parseSequence, tokensToHotkey, type SequenceSpec } from './hotkey-utils.js';
 
 export type Chord = {
-	steps: string[][];
+	steps: Hotkey[];
 	description?: string;
 	action: () => void;
 	enabled?: boolean;
@@ -12,7 +19,7 @@ export type Chord = {
 
 export const CHORD_TIMEOUT_MS = 1500;
 
-export function isChordInput(keys: unknown): boolean {
+export function isChordInput(keys: unknown): keys is { isChord: true } {
 	return (
 		typeof keys === 'object' &&
 		keys !== null &&
@@ -21,37 +28,31 @@ export function isChordInput(keys: unknown): boolean {
 	);
 }
 
-function sortCombo(combo: string[]): string[] {
-	return [...combo].sort((a, b) => a.localeCompare(b));
+export function normalizeChordSteps(steps: SequenceSpec | Hotkey[]): Hotkey[] {
+	return Array.isArray(steps) ? steps.map((step) => normalizeHotkey(step)) : parseSequence(steps);
 }
 
-function comboToString(combo: string[]): string {
-	return combo.join('-');
-}
-
-export function normalizeChordSteps(steps: string[][]): string[][] {
-	return steps.map((step) => sortCombo(step));
-}
-
-export function slugifyChord(steps: string[][]): string {
+export function slugifyChord(steps: SequenceSpec | Hotkey[]): string {
 	const normalized = normalizeChordSteps(steps);
-	return normalized.map((step) => comboToString(step).toLowerCase().replace(/\s+/g, '-')).join('>');
+	return normalized.join(' ');
 }
+
+type ChordProgress = {
+	steps: Hotkey[];
+	currentIndex: number;
+	expiresAt: number;
+};
 
 export class ChordRegistry {
 	chords = $state<Record<string, Chord>>({});
 	chordOrder: string[] = [];
 	chordPrefixes = $state(new SvelteSet<string>());
-	currentProgress = $state<{
-		steps: string[][];
-		currentIndex: number;
-		expiresAt: number;
-	} | null>(null);
+	currentProgress = $state<ChordProgress | null>(null);
 
-	private pressedKeys = new PressedKeys();
 	private chordTimeout: ReturnType<typeof setTimeout> | null = null;
 	private isListening = false;
 	private cleanupCallbacks: (() => void)[] = [];
+	private sequenceCleanups: Record<string, () => void> = {};
 
 	constructor() {}
 
@@ -61,87 +62,107 @@ export class ChordRegistry {
 
 		this.isListening = true;
 
-		// Set up escape key handler using svelte/events
-		const escapeCleanup = on(window, 'keydown', (event) => {
-			if (event.key === 'Escape') {
-				this.resetChord();
-			}
+		const keydownCleanup = on(window, 'keydown', (event) => {
+			this.handleKeyDown(event);
 		});
-		this.cleanupCallbacks.push(escapeCleanup);
+		this.cleanupCallbacks.push(keydownCleanup);
+	}
 
-		// Use $effect to sync chord listeners when chords change
-		$effect(() => {
-			this.syncChordListeners();
-		});
+	private handleKeyDown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			this.resetChord();
+			return;
+		}
+
+		if (this.currentProgress && Date.now() > this.currentProgress.expiresAt) {
+			this.resetChord();
+		}
+
+		const activeSlug = this.currentProgress ? slugifyChord(this.currentProgress.steps) : null;
+		const activeChord = activeSlug ? this.chords[activeSlug] : null;
+
+		if (!activeChord || activeChord.enabled === false) {
+			const firstStepChord = this.findMatchingFirstStep(event);
+			if (firstStepChord) {
+				this.startChord(firstStepChord);
+				if (firstStepChord.preventDefault) {
+					event.preventDefault();
+				}
+			}
+			return;
+		}
+
+		const expectedNextStep = activeChord.steps[this.currentProgress!.currentIndex + 1];
+		if (expectedNextStep && matchesKeyboardEvent(event, expectedNextStep)) {
+			this.advanceChord();
+			if (activeChord.preventDefault) {
+				event.preventDefault();
+			}
+			return;
+		}
+
+		if (matchesKeyboardEvent(event, activeChord.steps[0]!)) {
+			this.startChord(activeChord);
+			if (activeChord.preventDefault) {
+				event.preventDefault();
+			}
+			return;
+		}
+
+		const nextChord = this.findMatchingFirstStep(event);
+		if (nextChord) {
+			this.startChord(nextChord);
+			if (nextChord.preventDefault) {
+				event.preventDefault();
+			}
+			return;
+		}
+
+		this.resetChord();
+	}
+
+	private findMatchingFirstStep(event: KeyboardEvent): Chord | null {
+		return (
+			this.getChords().find(
+				(chord) =>
+					chord.enabled !== false && chord.steps[0] && matchesKeyboardEvent(event, chord.steps[0])
+			) || null
+		);
 	}
 
 	private syncChordListeners(): void {
-		// Clear existing chord-specific listeners (keep escape handler)
-		// Note: We can't easily remove onKeys callbacks, so we rely on the enabled check
+		for (const cleanup of Object.values(this.sequenceCleanups)) {
+			cleanup();
+		}
+		this.sequenceCleanups = {};
 
-		// For each registered chord, set up listeners
-		for (const chord of Object.values(this.chords)) {
-			this.setupChordListener(chord);
+		for (const [slug, chord] of Object.entries(this.chords)) {
+			if (!chord.steps.length) continue;
+			const options: SequenceOptions = {
+				enabled: chord.enabled ?? true,
+				ignoreInputs: false,
+				preventDefault: chord.preventDefault ?? false,
+				stopPropagation: false,
+				timeout: CHORD_TIMEOUT_MS
+			};
+
+			const cleanup = getSequenceManager().register(
+				chord.steps,
+				() => {
+					if (chord.enabled !== false) {
+						chord.action();
+					}
+					this.resetChord();
+				},
+				options
+			);
+
+			this.sequenceCleanups[slug] = cleanup;
 		}
 	}
 
-	private setupChordListener(chord: Chord): void {
-		if (!chord.enabled) return;
-
-		const firstStep = chord.steps[0];
-		if (!firstStep) return;
-
-		// Listen for first step - triggers immediately on keydown (VS Code style)
-		this.pressedKeys.onKeys(firstStep, () => {
-			if (!chord.enabled) return;
-
-			// If we're already in a chord progress for a different chord, ignore
-			if (this.currentProgress) {
-				const currentSlug = this.slugifyChord(this.currentProgress.steps);
-				const thisSlug = this.slugifyChord(chord.steps);
-				if (currentSlug !== thisSlug) {
-					return;
-				}
-			}
-
-			// Start the chord (shows progress UI immediately)
-			this.startChord(chord);
-		});
-
-		// Listen for second step
-		if (chord.steps.length > 1) {
-			const secondStep = chord.steps[1];
-			if (!secondStep) return;
-
-			this.pressedKeys.onKeys(secondStep, () => {
-				if (!chord.enabled) return;
-
-				// Only complete if we're in progress for THIS chord
-				if (
-					this.currentProgress &&
-					this.slugifyChord(this.currentProgress.steps) === this.slugifyChord(chord.steps) &&
-					this.currentProgress.currentIndex === 0
-				) {
-					this.completeChord();
-				}
-			});
-		}
-	}
-
-	normalizeChordSteps(steps: string[][]): string[][] {
-		return normalizeChordSteps(steps);
-	}
-
-	slugifyChord(steps: string[][]): string {
-		return slugifyChord(steps);
-	}
-
-	private comboToString(combo: string[]): string {
-		return comboToString(combo);
-	}
-
-	private checkCollision(steps: string[][], description?: string): boolean {
-		const slug = this.slugifyChord(steps);
+	private checkCollision(steps: Hotkey[], description?: string): boolean {
+		const slug = slugifyChord(steps);
 		if (this.chords[slug]) {
 			console.warn(
 				`Chord collision detected: "${slug}" already registered${description ? ` (trying to register: "${description}")` : ''}`
@@ -151,10 +172,16 @@ export class ChordRegistry {
 		return false;
 	}
 
-	add(chord: Omit<Chord, 'steps'> & { steps: string[][] }): void {
+	add(chord: Omit<Chord, 'steps'> & { steps: SequenceSpec }): void {
 		this.startListening();
 
-		const normalizedSteps = this.normalizeChordSteps(chord.steps);
+		let normalizedSteps: Hotkey[];
+		try {
+			normalizedSteps = normalizeChordSteps(chord.steps);
+		} catch (error) {
+			console.warn(`Cannot add chord: ${(error as Error).message}`);
+			return;
+		}
 
 		if (normalizedSteps.length === 0) {
 			console.warn('Cannot add chord with no steps');
@@ -168,10 +195,8 @@ export class ChordRegistry {
 
 		this.checkCollision(normalizedSteps, chord.description);
 
-		const slug = this.slugifyChord(normalizedSteps);
-
-		const firstStepString = this.comboToString(normalizedSteps[0]!);
-		this.chordPrefixes.add(firstStepString);
+		const slug = slugifyChord(normalizedSteps);
+		this.chordPrefixes.add(normalizedSteps[0]!);
 
 		this.chords[slug] = {
 			...chord,
@@ -183,12 +208,19 @@ export class ChordRegistry {
 			this.chordOrder.push(slug);
 		}
 
-		// Set up listener for this chord
-		this.setupChordListener(this.chords[slug]!);
+		this.syncChordListeners();
 	}
 
-	remove(steps: string[][]): void {
-		const slug = this.slugifyChord(steps);
+	remove(steps: SequenceSpec | Hotkey[]): void {
+		let normalizedSteps: Hotkey[];
+		try {
+			normalizedSteps = normalizeChordSteps(steps);
+		} catch {
+			console.warn(`Chord not found for steps: ${JSON.stringify(steps)}`);
+			return;
+		}
+
+		const slug = slugifyChord(normalizedSteps);
 		const chord = this.chords[slug];
 
 		if (!chord) {
@@ -196,13 +228,13 @@ export class ChordRegistry {
 			return;
 		}
 
-		const firstStepString = this.comboToString(chord.steps[0]!);
+		const firstStep = chord.steps[0]!;
 		const hasOtherChordsWithSamePrefix = Object.values(this.chords).some(
-			(c) => c !== chord && c.steps[0] && this.comboToString(c.steps[0]) === firstStepString
+			(c) => c !== chord && c.steps[0] === firstStep
 		);
 
 		if (!hasOtherChordsWithSamePrefix) {
-			this.chordPrefixes.delete(firstStepString);
+			this.chordPrefixes.delete(firstStep);
 		}
 
 		delete this.chords[slug];
@@ -211,15 +243,20 @@ export class ChordRegistry {
 			this.chordOrder.splice(index, 1);
 		}
 
-		if (this.currentProgress && this.slugifyChord(this.currentProgress.steps) === slug) {
+		const cleanup = this.sequenceCleanups[slug];
+		cleanup?.();
+		delete this.sequenceCleanups[slug];
+
+		if (this.currentProgress && slugifyChord(this.currentProgress.steps) === slug) {
 			this.resetChord();
 		}
 	}
 
-	toggle(steps: string[][]): void {
-		const slug = this.slugifyChord(steps);
+	toggle(steps: SequenceSpec | Hotkey[]): void {
+		const slug = slugifyChord(steps);
 		if (this.chords[slug]) {
 			this.chords[slug].enabled = !this.chords[slug].enabled;
+			this.syncChordListeners();
 		}
 	}
 
@@ -230,44 +267,39 @@ export class ChordRegistry {
 			.filter((chord): chord is Chord => chord !== undefined);
 	}
 
-	isChordPrefix(combo: string[]): boolean {
-		const comboString = this.comboToString(sortCombo(combo));
-		return this.chordPrefixes.has(comboString);
+	isChordPrefix(combo: Hotkey | string[]): boolean {
+		const value = Array.isArray(combo) ? tokensToHotkey(combo) : normalizeHotkey(combo);
+		return this.chordPrefixes.has(value);
 	}
 
-	findChordForPrefix(combo: string[]): Chord | null {
-		const comboString = this.comboToString(sortCombo(combo));
+	findChordForPrefix(combo: Hotkey | string[]): Chord | null {
+		const value = Array.isArray(combo) ? tokensToHotkey(combo) : normalizeHotkey(combo);
 		return (
-			this.getChords().find(
-				(chord) => this.comboToString(chord.steps[0]!) === comboString && chord.enabled
-			) || null
+			this.getChords().find((chord) => chord.steps[0] === value && chord.enabled !== false) || null
 		);
 	}
 
 	startChord(chord: Chord): void {
-		if (this.chordTimeout) {
-			clearTimeout(this.chordTimeout);
-		}
-
 		this.currentProgress = {
 			steps: chord.steps,
 			currentIndex: 0,
 			expiresAt: Date.now() + CHORD_TIMEOUT_MS
 		};
 
-		this.chordTimeout = setTimeout(() => {
-			this.resetChord();
-		}, CHORD_TIMEOUT_MS);
+		this.resetChordTimeout();
 	}
 
-	completeChord(): void {
-		if (this.currentProgress) {
-			const chord = this.chords[this.slugifyChord(this.currentProgress.steps)];
-			if (chord && chord.enabled) {
-				chord.action();
-			}
-		}
-		this.resetChord();
+	private advanceChord(): void {
+		if (!this.currentProgress) return;
+
+		const nextIndex = this.currentProgress.currentIndex + 1;
+		this.currentProgress = {
+			...this.currentProgress,
+			currentIndex: nextIndex,
+			expiresAt: Date.now() + CHORD_TIMEOUT_MS
+		};
+
+		this.resetChordTimeout();
 	}
 
 	resetChord(): void {
@@ -278,66 +310,37 @@ export class ChordRegistry {
 		this.currentProgress = null;
 	}
 
+	private resetChordTimeout(): void {
+		if (this.chordTimeout) {
+			clearTimeout(this.chordTimeout);
+		}
+
+		this.chordTimeout = setTimeout(() => {
+			this.resetChord();
+		}, CHORD_TIMEOUT_MS);
+	}
+
 	destroy(): void {
 		for (const cleanup of this.cleanupCallbacks) {
 			cleanup();
 		}
 		this.cleanupCallbacks = [];
+
+		for (const cleanup of Object.values(this.sequenceCleanups)) {
+			cleanup();
+		}
+		this.sequenceCleanups = {};
+
 		this.resetChord();
 		this.isListening = false;
 	}
 }
 
-let _registry: ChordRegistry | null = null;
+export const chordRegistry = new ChordRegistry();
 
-function getRegistry(): ChordRegistry {
-	if (!_registry) {
-		_registry = new ChordRegistry();
-	}
-	return _registry;
-}
+export const chords = chordRegistry.chords;
 
-// Export direct access to the registry for reactivity
-export function getChordRegistry(): ChordRegistry {
-	return getRegistry();
-}
-
-export const chordRegistry: ChordRegistry = new Proxy({} as ChordRegistry, {
-	get(_, prop) {
-		return getRegistry()[prop as keyof ChordRegistry];
-	}
-});
-
-export const chords: Record<string, Chord> = new Proxy(
-	{},
-	{
-		get(_, prop) {
-			const registry = getRegistry();
-			return registry.chords[prop as string];
-		},
-		has(_, prop) {
-			const registry = getRegistry();
-			return prop in registry.chords;
-		}
-	}
-);
-
-export function add_chord(chord: Omit<Chord, 'steps'> & { steps: string[][] }): void {
-	getRegistry().add(chord);
-}
-
-export function remove_chord(steps: string[][]): void {
-	getRegistry().remove(steps);
-}
-
-export function toggle_chord(steps: string[][]): void {
-	getRegistry().toggle(steps);
-}
-
-export function get_current_progress(): {
-	steps: string[][];
-	currentIndex: number;
-	expiresAt: number;
-} | null {
-	return getRegistry().currentProgress;
-}
+export const add_chord = chordRegistry.add.bind(chordRegistry);
+export const remove_chord = chordRegistry.remove.bind(chordRegistry);
+export const toggle_chord = chordRegistry.toggle.bind(chordRegistry);
+export const get_current_progress = () => chordRegistry.currentProgress;

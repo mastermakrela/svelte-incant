@@ -1,393 +1,242 @@
-import { PressedKeys, activeElement } from 'runed';
-import { on } from 'svelte/events';
+import {
+	getHotkeyManager,
+	normalizeHotkey,
+	parseHotkey,
+	type Hotkey,
+	type HotkeyCallbackContext,
+	type HotkeyOptions,
+	type HotkeyRegistrationHandle,
+	type ParsedHotkey
+} from '@tanstack/hotkeys';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { chordRegistry } from './chord.svelte.js';
 
 export type Shortcut = {
-	keys: string[][];
+	keys: Hotkey;
 	description?: string;
-	action: () => void;
+	action: (keys: string[]) => void;
 	enabled?: boolean;
 	preventDefault?: boolean;
 };
 
-export function isArrayOfArrays(keys: unknown): keys is string[][] {
-	return Array.isArray(keys) && keys.length > 0 && Array.isArray(keys[0]);
-}
+export type ShortcutRegistry = {
+	shortcuts: Record<string, Shortcut>;
+	registeredCombos: Set<string>;
+	configure: (config: { preventDefault?: boolean }) => void;
+	add: (shortcut: Shortcut) => void;
+	remove: (keys: Hotkey) => void;
+	toggle: (keys: Hotkey) => void;
+	getShortcuts: () => Shortcut[];
+	filteredShortcuts: (pressedKeys: string[]) => Shortcut[];
+};
 
-export function sortCombo(combo: string[]): string[] {
-	return [...combo].sort((a, b) => a.localeCompare(b));
-}
-
-export function comboToString(combo: string[]): string {
-	return combo.join('-');
-}
-
-export function normalizeKeys(keys: string | string[] | string[][]): string[][] {
-	if (typeof keys === 'string') {
-		return [[keys]];
-	}
-
-	if (keys.length === 0) {
-		return [];
-	}
-
-	if (Array.isArray(keys[0])) {
-		return (keys as string[][]).map((combo) => sortCombo(combo));
-	}
-
-	return [sortCombo(keys as string[])];
-}
-
-export function slugify(keys: string | string[] | string[][]): string {
-	const normalized = normalizeKeys(keys);
-	return normalized
-		.map((combo) => comboToString(combo).toLowerCase().replace(/\s+/g, '-'))
-		.join('|');
-}
-
-// Global config for shortcuts
 const globalConfig = $state({
 	preventDefault: false
 });
 
-class ShortcutRegistry {
-	shortcuts = $state<Record<string, Shortcut>>({});
-	private shortcutOrder: string[] = [];
-	registeredCombos = $state(new Set<string>());
+export const shortcuts = $state<Record<string, Shortcut>>({});
+const shortcutOrder = $state<string[]>([]);
+const registeredCombos = new SvelteSet<string>();
+const registrations = new SvelteMap<string, HotkeyRegistrationHandle>();
 
-	private pressedKeys = new PressedKeys();
-	private cleanupCallbacks = new Map<string, () => void>();
-	private isListening = false;
-	private preventDefaultCleanups: (() => void)[] = [];
+const TEXT_INPUT_TYPES = new Set([
+	'text',
+	'password',
+	'email',
+	'search',
+	'tel',
+	'url',
+	'number',
+	'date',
+	'datetime-local',
+	'month',
+	'time',
+	'week'
+]);
 
-	constructor() {}
+function isTypingElement(element: Element | null): boolean {
+	if (!element) return false;
 
-	configure(config: { preventDefault?: boolean }): void {
-		if (config.preventDefault !== undefined) {
-			globalConfig.preventDefault = config.preventDefault;
-			// Re-sync listeners to apply new config
-			this.syncKeyboardListeners();
-		}
+	const tagName = element.tagName.toLowerCase();
+
+	if ((element as HTMLElement).isContentEditable) return true;
+	if (tagName === 'textarea' || tagName === 'select') return true;
+	if (tagName === 'input') {
+		return TEXT_INPUT_TYPES.has((element as HTMLInputElement).type.toLowerCase());
 	}
 
-	private startListening(): void {
-		if (this.isListening) return;
+	return false;
+}
 
-		this.isListening = true;
-		$effect(() => {
-			this.syncKeyboardListeners();
-		});
+function parsedHotkeyToTokens(parsed: ParsedHotkey): string[] {
+	const tokens: string[] = [];
+	if (parsed.ctrl) tokens.push('control');
+	if (parsed.alt) tokens.push('alt');
+	if (parsed.shift) tokens.push('shift');
+	if (parsed.meta) tokens.push('meta');
+	tokens.push(parsed.key === 'Space' ? ' ' : parsed.key.toLowerCase());
+	return Array.from(new Set(tokens)).sort((a, b) => a.localeCompare(b));
+}
+
+function createRegistrationOptions(shortcut: Shortcut): HotkeyOptions {
+	return {
+		conflictBehavior: 'allow',
+		enabled: shortcut.enabled ?? true,
+		eventType: 'keydown',
+		ignoreInputs: false,
+		preventDefault: shortcut.preventDefault ?? globalConfig.preventDefault,
+		requireReset: true,
+		stopPropagation: false
+	};
+}
+
+function syncShortcutRegistration(slug: string): void {
+	const shortcut = shortcuts[slug];
+	const existingRegistration = registrations.get(slug);
+
+	if (!shortcut) {
+		existingRegistration?.unregister();
+		registrations.delete(slug);
+		return;
 	}
 
-	normalizeKeys(keys: string | string[] | string[][]): string[][] {
-		return normalizeKeys(keys);
+	const parsedHotkey = parseHotkey(shortcut.keys);
+	const hasModifierKey =
+		parsedHotkey.ctrl || parsedHotkey.alt || parsedHotkey.shift || parsedHotkey.meta;
+
+	const callback = (event: KeyboardEvent, context: HotkeyCallbackContext) => {
+		const target = event.target as Element | null;
+
+		if (shortcut.enabled === false) return;
+		if (!hasModifierKey && isTypingElement(target)) return;
+		if (chordRegistry.isChordPrefix(shortcut.keys)) return;
+
+		shortcut.action(parsedHotkeyToTokens(context.parsedHotkey));
+	};
+
+	const options = createRegistrationOptions(shortcut);
+
+	if (existingRegistration) {
+		existingRegistration.callback = callback;
+		existingRegistration.setOptions(options);
+		return;
 	}
 
-	slugify(keys: string | string[] | string[][]): string {
-		return slugify(keys);
+	const registration = getHotkeyManager().register(shortcut.keys, callback, options);
+	registrations.set(slug, registration);
+}
+
+function syncAllShortcutRegistrations(): void {
+	for (const slug of Object.keys(shortcuts)) {
+		syncShortcutRegistration(slug);
 	}
 
-	private comboToString(combo: string[]): string {
-		return comboToString(combo);
-	}
-
-	private checkCollision(keys: string[][], description?: string): boolean {
-		for (const combo of keys) {
-			const comboString = this.comboToString(combo);
-			if (this.registeredCombos.has(comboString)) {
-				console.warn(
-					`Shortcut collision detected: "${comboString}" already registered${description ? ` (trying to register: "${description}")` : ''}`
-				);
-				return true;
-			}
-		}
-		return false;
-	}
-
-	add(shortcut: Omit<Shortcut, 'keys'> & { keys: string | string[] | string[][] }): void {
-		this.startListening();
-
-		const normalizedKeys = this.normalizeKeys(shortcut.keys);
-
-		if (normalizedKeys.length === 0) {
-			console.warn('Cannot add shortcut with no keys');
-			return;
-		}
-
-		this.checkCollision(normalizedKeys, shortcut.description);
-
-		const slug = this.slugify(shortcut.keys);
-
-		for (const combo of normalizedKeys) {
-			const comboString = this.comboToString(combo);
-			this.registeredCombos.add(comboString);
-		}
-
-		this.shortcuts[slug] = {
-			...shortcut,
-			keys: normalizedKeys,
-			enabled: shortcut.enabled ?? true
-		};
-
-		if (!this.shortcutOrder.includes(slug)) {
-			this.shortcutOrder.push(slug);
+	for (const slug of [...registrations.keys()]) {
+		if (!(slug in shortcuts)) {
+			syncShortcutRegistration(slug);
 		}
 	}
+}
 
-	remove(keys: string | string[] | string[][]): void {
-		const slug = this.slugify(keys);
-		const shortcut = this.shortcuts[slug];
-
-		if (!shortcut) {
-			console.warn(`Shortcut not found for keys: ${JSON.stringify(keys)}`);
-			return;
-		}
-
-		for (const combo of shortcut.keys) {
-			const comboString = this.comboToString(combo);
-			this.registeredCombos.delete(comboString);
-		}
-
-		delete this.shortcuts[slug];
-		const index = this.shortcutOrder.indexOf(slug);
-		if (index > -1) {
-			this.shortcutOrder.splice(index, 1);
-		}
+function configureRegistry(config: { preventDefault?: boolean }): void {
+	if (config.preventDefault !== undefined) {
+		globalConfig.preventDefault = config.preventDefault;
+		syncAllShortcutRegistrations();
 	}
+}
 
-	toggle(keys: string | string[] | string[][]): void {
-		const slug = this.slugify(keys);
-		if (this.shortcuts[slug]) {
-			this.shortcuts[slug].enabled = !this.shortcuts[slug].enabled;
-		}
-	}
-
-	getShortcuts(): Shortcut[] {
-		this.startListening();
-		return this.shortcutOrder
-			.map((slug) => this.shortcuts[slug])
-			.filter((shortcut): shortcut is Shortcut => shortcut !== undefined);
-	}
-
-	filteredShortcuts(pressedKeys: string[]): Shortcut[] {
-		const allShortcuts = this.getShortcuts();
-
-		if (pressedKeys.length === 0) {
-			return allShortcuts;
-		}
-
-		const filteredPressedKeys = pressedKeys.filter(
-			(key) => ['?', '/', ' ', 'escape'].indexOf(key) === -1
+export function add_shortcut(shortcut: Shortcut): void {
+	const normalizedKeys = normalizeHotkey(shortcut.keys);
+	const slug = normalizedKeys;
+	const existing = shortcuts[slug];
+	if (
+		existing &&
+		(existing.action !== shortcut.action || existing.description !== shortcut.description)
+	) {
+		console.warn(
+			`Shortcut collision detected: "${normalizedKeys}" already registered${shortcut.description ? ` (trying to register: "${shortcut.description}")` : ''}`
 		);
-
-		return allShortcuts.filter((shortcut) => {
-			return shortcut.keys.some((keyCombo) =>
-				keyCombo.some((key) =>
-					filteredPressedKeys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
-				)
-			);
-		});
 	}
 
-	private syncKeyboardListeners(): void {
-		for (const [slug, cleanup] of this.cleanupCallbacks) {
-			cleanup();
-			this.cleanupCallbacks.delete(slug);
-		}
+	shortcuts[slug] = {
+		...shortcut,
+		keys: normalizedKeys,
+		enabled: shortcut.enabled ?? true
+	};
 
-		for (const [slug, shortcut] of Object.entries(this.shortcuts)) {
-			const cleanup = this.setupKeyboardListener(shortcut);
-			this.cleanupCallbacks.set(slug, cleanup);
-		}
+	if (!shortcutOrder.includes(slug)) {
+		shortcutOrder.push(slug);
 	}
 
-	private setupKeyboardListener(shortcut: Shortcut): () => void {
-		const cleanups: (() => void)[] = [];
-
-		for (const keyCombo of shortcut.keys) {
-			// Set up pressed keys listener for action
-			this.pressedKeys.onKeys(keyCombo, () => {
-				const target = activeElement.current;
-				const hasModifier = this.hasModifierKey(keyCombo);
-
-				if (shortcut.enabled && (hasModifier || !this.isTypingElement(target))) {
-					if (this.isChordPrefix(keyCombo)) {
-						return;
-					}
-					// Check if a more specific shortcut should take priority
-					if (this.hasMoreSpecificMatch(keyCombo)) {
-						return; // Let the more specific shortcut handle this
-					}
-					shortcut.action();
-				}
-			});
-
-			// Set up preventDefault listener if enabled globally or for this shortcut
-			const shouldPreventDefault = shortcut.preventDefault ?? globalConfig.preventDefault;
-			if (shouldPreventDefault && typeof window !== 'undefined') {
-				const cleanup = on(
-					window,
-					'keydown',
-					(event: KeyboardEvent) => {
-						// Check if keys match this shortcut
-						const allPressed = this.pressedKeys.all;
-						const sortedPressed = [...allPressed].sort((a: string, b: string) =>
-							a.localeCompare(b)
-						);
-						const sortedCombo = [...keyCombo].sort((a, b) => a.localeCompare(b));
-
-						if (
-							sortedPressed.length === sortedCombo.length &&
-							sortedPressed.every(
-								(key: string, i: number) => key.toLowerCase() === sortedCombo[i]!.toLowerCase()
-							)
-						) {
-							// Only prevent default if not in typing element (unless has modifier)
-							const target = event.target as Element;
-							const hasModifier = this.hasModifierKey(keyCombo);
-							if (shortcut.enabled && (hasModifier || !this.isTypingElement(target))) {
-								event.preventDefault();
-							}
-						}
-					},
-					{ capture: true }
-				);
-				cleanups.push(cleanup);
-			}
-		}
-
-		return () => {
-			for (const cleanup of cleanups) {
-				cleanup();
-			}
-		};
-	}
-
-	private hasModifierKey(keys: string[]): boolean {
-		const modifierKeys = ['control', 'ctrl', 'alt', 'meta', 'command', 'cmd'];
-		return keys.some((key) => modifierKeys.includes(key.toLowerCase()));
-	}
-
-	/**
-	 * Calculate specificity score for a key combination.
-	 * More keys = higher specificity = should take priority.
-	 */
-	private getSpecificity(combo: string[]): number {
-		return combo.length;
-	}
-
-	/**
-	 * Check if there's a more specific shortcut that matches current pressed keys.
-	 * Returns true if the given combo is NOT the most specific match.
-	 */
-	private hasMoreSpecificMatch(combo: string[]): boolean {
-		const currentSpecificity = this.getSpecificity(combo);
-		const allPressed = this.pressedKeys.all;
-
-		// Check all registered shortcuts for a more specific match
-		for (const shortcut of Object.values(this.shortcuts)) {
-			if (!shortcut.enabled) continue;
-
-			for (const otherCombo of shortcut.keys) {
-				const otherSpecificity = this.getSpecificity(otherCombo);
-
-				// Only consider more specific combos (more keys)
-				if (otherSpecificity <= currentSpecificity) continue;
-
-				// Check if the more specific combo is currently pressed
-				const allKeysPresent = otherCombo.every((key) =>
-					allPressed.some((pressed) => pressed.toLowerCase() === key.toLowerCase())
-				);
-
-				if (allKeysPresent) {
-					return true; // Found a more specific match
-				}
-			}
-		}
-
-		return false;
-	}
-
-	private isChordPrefix(keys: string[]): boolean {
-		return chordRegistry.isChordPrefix(keys);
-	}
-
-	private isTypingElement(element: Element | null): boolean {
-		if (!element) return false;
-
-		const tagName = element.tagName.toLowerCase();
-
-		if ((element as HTMLElement).isContentEditable) return true;
-
-		if (tagName === 'textarea') return true;
-
-		if (tagName === 'input') {
-			const inputType = (element as HTMLInputElement).type.toLowerCase();
-			const textTypes = [
-				'text',
-				'password',
-				'email',
-				'search',
-				'tel',
-				'url',
-				'number',
-				'date',
-				'datetime-local',
-				'month',
-				'time',
-				'week'
-			];
-			return textTypes.includes(inputType);
-		}
-
-		return false;
-	}
+	registeredCombos.add(normalizedKeys);
+	syncShortcutRegistration(slug);
 }
 
-let _registry: ShortcutRegistry | null = null;
+export function remove_shortcut(keys: Hotkey): void {
+	const slug = normalizeHotkey(keys);
+	const shortcut = shortcuts[slug];
 
-function getRegistry(): ShortcutRegistry {
-	if (!_registry) {
-		_registry = new ShortcutRegistry();
+	if (!shortcut) {
+		console.warn(`Shortcut not found for keys: ${JSON.stringify(keys)}`);
+		return;
 	}
-	return _registry;
-}
 
-export const registry: ShortcutRegistry = new Proxy({} as ShortcutRegistry, {
-	get(_, prop) {
-		return getRegistry()[prop as keyof ShortcutRegistry];
+	registeredCombos.delete(shortcut.keys);
+	delete shortcuts[slug];
+
+	const index = shortcutOrder.indexOf(slug);
+	if (index > -1) {
+		shortcutOrder.splice(index, 1);
 	}
-});
 
-export const shortcuts: Record<string, Shortcut> = new Proxy(
-	{},
-	{
-		get(_, prop) {
-			const registry = getRegistry();
-			return registry.shortcuts[prop as string];
-		},
-		has(_, prop) {
-			const registry = getRegistry();
-			return prop in registry.shortcuts;
-		}
+	syncShortcutRegistration(slug);
+}
+
+export function toggle_shortcut(keys: Hotkey): void {
+	const slug = normalizeHotkey(keys);
+	const shortcut = shortcuts[slug];
+	if (!shortcut) return;
+
+	shortcut.enabled = !shortcut.enabled;
+	syncShortcutRegistration(slug);
+}
+
+function getShortcuts(): Shortcut[] {
+	return shortcutOrder
+		.map((slug) => shortcuts[slug])
+		.filter((shortcut): shortcut is Shortcut => shortcut !== undefined);
+}
+
+function filteredShortcuts(pressedKeys: string[]): Shortcut[] {
+	const allShortcuts = getShortcuts();
+
+	if (pressedKeys.length === 0) {
+		return allShortcuts;
 	}
-);
 
-export function add_shortcut(
-	shortcut: Omit<Shortcut, 'keys'> & { keys: string | string[] | string[][] }
-): void {
-	getRegistry().add(shortcut);
+	const filteredPressedKeys = pressedKeys.filter(
+		(key) => ['?', '/', ' ', 'escape'].indexOf(key.toLowerCase()) === -1
+	);
+
+	return allShortcuts.filter((shortcut) => {
+		const tokens = parsedHotkeyToTokens(parseHotkey(shortcut.keys));
+		return tokens.some((token) =>
+			filteredPressedKeys.some((pressedKey) => token.toLowerCase() === pressedKey.toLowerCase())
+		);
+	});
 }
 
-export function remove_shortcut(keys: string | string[] | string[][]): void {
-	getRegistry().remove(keys);
-}
+export const registry: ShortcutRegistry = {
+	shortcuts,
+	registeredCombos,
+	configure: configureRegistry,
+	add: add_shortcut,
+	remove: remove_shortcut,
+	toggle: toggle_shortcut,
+	getShortcuts,
+	filteredShortcuts
+};
 
-export function toggle_shortcut(keys: string | string[] | string[][]): void {
-	getRegistry().toggle(keys);
-}
-
-// Global palette state for programmatic control
 export const paletteState = $state({ open: false });
 
 export function openPalette(): void {
