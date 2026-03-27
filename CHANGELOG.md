@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2026-03-27
+
+- fix: Bind `Dialog.Root` directly to `paletteState.open` instead of a derived copy to keep two-way sync working
+- fix: Remove `/` from default palette shortcut keys (keep only `?`) to avoid conflicts
+- fix: Add cleanup teardown in `startListening` effect so `isListening` resets on destroy; warn if listeners are started twice
+
 ## [0.7.0] - 2026-02-17
 
 - feat: Add `formatShortcut` prop to `Palette` for custom keyboard shortcut display formatting

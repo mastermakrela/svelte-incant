@@ -94,7 +94,6 @@
 		};
 	} = $props();
 
-	let open = $derived(paletteState.open);
 	let tooltip_open = $state(false);
 
 	const pressed_keys = new PressedKeys();
@@ -144,7 +143,7 @@
 	});
 </script>
 
-<Shortcut keys={[['?'], ['/']]} description={texts.shortcutDescription} action={togglePalette} />
+<Shortcut keys={[['?']]} description={texts.shortcutDescription} action={togglePalette} />
 
 <Tooltip.Provider delayDuration={0}>
 	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
@@ -163,7 +162,7 @@
 	</Tooltip.Root>
 </Tooltip.Provider>
 
-<Dialog.Root bind:open>
+<Dialog.Root bind:open={paletteState.open}>
 	<Dialog.Content portalProps={{ disabled: true }}>
 		<Dialog.Header>
 			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>

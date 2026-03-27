@@ -71,11 +71,18 @@ class ShortcutRegistry {
 	}
 
 	private startListening(): void {
-		if (this.isListening) return;
+		if (this.isListening) {
+			console.warn('Keyboard listeners already started');
+			return;
+		}
 
 		this.isListening = true;
 		$effect(() => {
 			this.syncKeyboardListeners();
+
+			return () => {
+				this.isListening = false;
+			};
 		});
 	}
 
