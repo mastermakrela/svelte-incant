@@ -1,37 +1,21 @@
 <script lang="ts">
-	import { PressedKeys } from 'runed';
+	import { getIsKeyHeld, type RegisterableHotkey } from '@tanstack/svelte-hotkeys';
 	import Kbds from './components/kbds.svelte';
-	import { normalizeKeys, shortcuts } from './palette.svelte.js';
+	import { isShortcutEnabled } from './palette.svelte.js';
 
 	export type OverlayComponentProps = {
-		keys: string | string[] | string[][];
+		hotkey: RegisterableHotkey;
 	};
 
-	let { keys }: OverlayComponentProps = $props();
+	let { hotkey }: OverlayComponentProps = $props();
 
-	const pressed_keys = new PressedKeys();
-	const alt_pressed = $derived(pressed_keys.has('alt'));
-
-	const normalized_keys = $derived.by(() => normalizeKeys(keys));
-	const shortcut = $derived.by(() => {
-		for (const combo of normalized_keys) {
-			const slug = combo.join('-').toLowerCase().replace(/\s+/g, '-');
-			const registered_shortcut = shortcuts[slug];
-			if (registered_shortcut) {
-				return registered_shortcut;
-			}
-		}
-		return null;
-	});
-
-	const visible = $derived.by(() => {
-		return alt_pressed && shortcut?.enabled !== false;
-	});
+	const altHeld = getIsKeyHeld('Alt');
+	const visible = $derived(altHeld.held && isShortcutEnabled(hotkey));
 </script>
 
 {#if visible}
 	<div class="incant-overlay-component">
-		<Kbds {keys} />
+		<Kbds {hotkey} />
 	</div>
 {/if}
 

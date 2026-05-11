@@ -1,29 +1,30 @@
 <script lang="ts">
+	import type { RegisterableHotkey } from '@tanstack/svelte-hotkeys';
 	import { watch } from 'runed';
 	import { add_shortcut, remove_shortcut } from './palette.svelte.js';
 
 	let {
-		keys,
+		hotkey,
 		description,
 		action,
 		preventDefault
 	}: {
-		keys: string | string[] | string[][];
+		hotkey: RegisterableHotkey;
 		description?: string;
 		action: () => void;
 		preventDefault?: boolean;
 	} = $props();
 
-	watch([() => keys, () => description, () => action, () => preventDefault], () => {
+	watch([() => hotkey, () => description, () => action, () => preventDefault], () => {
 		add_shortcut({
-			keys,
+			hotkey,
 			description,
 			action,
 			preventDefault
 		});
 
 		return () => {
-			remove_shortcut(keys);
+			remove_shortcut(hotkey);
 		};
 	});
 </script>

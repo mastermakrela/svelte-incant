@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { CHORD_TIMEOUT_MS } from '../chord.svelte.js';
-
-	let { expiresAt }: { expiresAt: number } = $props();
+	let { expiresAt, duration }: { expiresAt: number; duration: number } = $props();
 
 	let progress = $state(1);
 	let frame: number;
@@ -9,7 +7,7 @@
 	function update() {
 		const now = Date.now();
 		const remaining = Math.max(0, expiresAt - now);
-		progress = remaining / CHORD_TIMEOUT_MS;
+		progress = duration > 0 ? remaining / duration : 0;
 
 		if (remaining > 0) {
 			frame = requestAnimationFrame(update);

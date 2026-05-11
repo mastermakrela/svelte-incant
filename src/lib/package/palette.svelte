@@ -11,45 +11,43 @@
 
 <script lang="ts">
 	import { Keyboard, ToggleLeft, ToggleRight } from '@lucide/svelte';
-	import { PressedKeys } from 'runed';
+	import {
+		DEFAULT_SEQUENCE_TIMEOUT,
+		formatHotkeySequence,
+		getHeldKeys,
+		getHotkeyRegistrations,
+		type RawHotkey,
+		type RegisterableHotkey
+	} from '@tanstack/svelte-hotkeys';
+	import { toggle_chord } from './chord.svelte.js';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
-	import { getChordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
-	import { paletteState, registry, slugify, togglePalette } from './palette.svelte.js';
+	import { paletteState, togglePalette, toggle_shortcut } from './palette.svelte.js';
 	import Shortcut from './shortcut.svelte';
 
-	// Get direct reference to registry for reactive access
-	const _chordRegistry = getChordRegistry();
-	const currentProgress = $derived(_chordRegistry.currentProgress);
+	const PALETTE_HOTKEY: RawHotkey = { key: '?', shift: true };
 
-	const chords = $derived.by(() => _chordRegistry.getChords());
-
-	const allShortcutsAndChords = $derived.by(() => {
-		const allShortcuts = registry.getShortcuts();
-		const allChords = chords;
-
-		const shortcutsWithChords = allShortcuts.map((s) => ({
-			type: 'shortcut' as const,
-			keys: s.keys,
-			description: s.description,
-			enabled: s.enabled,
-			toggle: () => registry.toggle(s.keys)
-		}));
-
-		const chordsItems = allChords.map((c: ChordType) => ({
-			type: 'chord' as const,
-			keys: c.steps,
-			description: c.description,
-			enabled: c.enabled,
-			toggle: () => _chordRegistry.toggle(c.steps)
-		}));
-
-		return [...shortcutsWithChords, ...chordsItems];
-	});
+	type PaletteItem =
+		| {
+				type: 'shortcut';
+				key: string;
+				hotkey: RegisterableHotkey;
+				description?: string;
+				enabled: boolean;
+				toggle: () => void;
+		  }
+		| {
+				type: 'chord';
+				key: string;
+				sequence: RegisterableHotkey[];
+				description?: string;
+				enabled: boolean;
+				toggle: () => void;
+		  };
 
 	let {
 		position = 'bottom-right',
@@ -75,7 +73,11 @@
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
-		formatShortcut?: (keys: string[][], isChord: boolean, isMac: boolean) => string;
+		formatShortcut?: (
+			hotkey: RegisterableHotkey | undefined,
+			sequence: RegisterableHotkey[] | undefined,
+			isMac: boolean
+		) => string;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -96,57 +98,103 @@
 
 	let tooltip_open = $state(false);
 
-	const pressed_keys = new PressedKeys();
-	const all_keys = $derived(pressed_keys.all);
+	const registrations = getHotkeyRegistrations();
+	const heldKeys = getHeldKeys();
 
-	const chordDisplay = $derived.by(() => {
-		if (!currentProgress) return null;
-		const { steps, currentIndex, expiresAt } = currentProgress;
-		return {
-			completedSteps: steps.slice(0, currentIndex + 1),
-			hasMore: currentIndex < steps.length - 1,
-			expiresAt
-		};
+	const allItems: PaletteItem[] = $derived.by(() => {
+		const items: PaletteItem[] = [];
+
+		for (const reg of registrations.hotkeys) {
+			items.push({
+				type: 'shortcut',
+				key: reg.hotkey,
+				hotkey: reg.hotkey,
+				description: reg.options.meta?.description,
+				enabled: reg.options.enabled !== false,
+				toggle: () => toggle_shortcut(reg.hotkey)
+			});
+		}
+
+		for (const reg of registrations.sequences) {
+			items.push({
+				type: 'chord',
+				key: formatHotkeySequence(reg.sequence),
+				sequence: reg.sequence,
+				description: reg.options.meta?.description,
+				enabled: reg.options.enabled !== false,
+				toggle: () => toggle_chord(reg.sequence)
+			});
+		}
+
+		return items;
 	});
 
-	const filtered_shortcuts = $derived.by(() => {
-		const _all_keys = all_keys.filter((key) => ['?', '/', ' ', 'tab'].indexOf(key) === -1);
-		return allShortcutsAndChords.filter((item) => {
-			const matches = item.keys.some((keyCombo: string[]) =>
-				keyCombo.some((key: string) =>
-					_all_keys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
-				)
-			);
-			return matches || _all_keys.length === 0;
+	let expiryTick = $state(0);
+
+	const activeChord = $derived.by(() => {
+		void expiryTick;
+		const now = Date.now();
+		for (const reg of registrations.sequences) {
+			if (reg.matchedStepCount === 0) continue;
+			if (reg.matchedStepCount >= reg.sequence.length) continue;
+			const timeout = reg.options.timeout ?? DEFAULT_SEQUENCE_TIMEOUT;
+			const expiresAt = reg.partialMatchLastKeyTime + timeout;
+			if (now >= expiresAt) continue;
+			return {
+				sequence: reg.sequence,
+				completedSteps: reg.sequence.slice(0, reg.matchedStepCount),
+				hasMore: reg.matchedStepCount < reg.sequence.length,
+				expiresAt,
+				timeout
+			};
+		}
+		return null;
+	});
+
+	$effect(() => {
+		const chord = activeChord;
+		if (!chord) return;
+		const remaining = chord.expiresAt - Date.now();
+		if (remaining <= 0) return;
+		const id = setTimeout(() => {
+			expiryTick++;
+		}, remaining + 16);
+		return () => clearTimeout(id);
+	});
+
+	const filtered_items = $derived.by(() => {
+		const pressed = heldKeys.keys.filter((key) => !['?', '/', ' ', 'Tab', 'Escape'].includes(key));
+		if (pressed.length === 0) return allItems;
+
+		const needles = pressed.map((k) => k.toLowerCase());
+
+		return allItems.filter((item) => {
+			const haystack =
+				item.type === 'shortcut'
+					? String(item.hotkey).toLowerCase()
+					: item.sequence
+							.map((s) => String(s))
+							.join(' ')
+							.toLowerCase();
+			return needles.some((n) => haystack.includes(n));
 		});
 	});
 
-	const positionStyles = $derived.by(() => {
-		switch (position) {
-			case 'top-left':
-				return 'left: 1rem; top: 1rem;';
-			case 'top-center':
-				return 'left: 50%; top: 1rem; transform: translateX(-50%);';
-			case 'top-right':
-				return 'right: 1rem; top: 1rem;';
-			case 'bottom-left':
-				return 'left: 1rem; bottom: 1rem;';
-			case 'bottom-center':
-				return 'left: 50%; bottom: 1rem; transform: translateX(-50%);';
-			case 'bottom-right':
-				return 'right: 1rem; bottom: 1rem;';
-			case 'none':
-				return 'display: none;';
-			default:
-				return 'right: 1rem; bottom: 1rem;';
-		}
-	});
+	const POSITION_STYLES: Record<PalettePosition, string> = {
+		'top-left': 'left: 1rem; top: 1rem;',
+		'top-center': 'left: 50%; top: 1rem; transform: translateX(-50%);',
+		'top-right': 'right: 1rem; top: 1rem;',
+		'bottom-left': 'left: 1rem; bottom: 1rem;',
+		'bottom-center': 'left: 50%; bottom: 1rem; transform: translateX(-50%);',
+		'bottom-right': 'right: 1rem; bottom: 1rem;',
+		none: 'display: none;'
+	};
+	const positionStyles = $derived(POSITION_STYLES[position]);
 </script>
 
-<Shortcut keys={[['?']]} description={texts.shortcutDescription} action={togglePalette} />
+<Shortcut hotkey={PALETTE_HOTKEY} description={texts.shortcutDescription} action={togglePalette} />
 
 <Tooltip.Provider delayDuration={0}>
-	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
 	<Tooltip.Root bind:open={tooltip_open}>
 		<Tooltip.Trigger onclick={togglePalette}>
 			{#snippet child({ props })}
@@ -183,10 +231,14 @@
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filtered_shortcuts as item (item.type === 'shortcut' ? slugify(item.keys) : slugifyChord(item.keys))}
+						{#each filtered_items as item (item.key)}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={item.keys} isChord={item.type === 'chord'} {formatShortcut} />
+									{#if item.type === 'shortcut'}
+										<Kbds hotkey={item.hotkey} {formatShortcut} />
+									{:else}
+										<Kbds sequence={item.sequence} {formatShortcut} />
+									{/if}
 								</Table.Cell>
 								<Table.Cell>{item.description}</Table.Cell>
 								{#if showToggles}
@@ -200,7 +252,7 @@
 												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
 											tabindex="0"
 										>
-											{#if item.enabled !== false}
+											{#if item.enabled}
 												<ToggleRight class="incant-palette-toggle-icon enabled" />
 											{:else}
 												<ToggleLeft class="incant-palette-toggle-icon disabled" />
@@ -213,9 +265,7 @@
 							<Table.Row>
 								<Table.Cell colspan={showToggles ? 3 : 2} class="incant-palette-empty-state">
 									{texts.emptyState}
-									<Kbds keys={all_keys} {formatShortcut} />
-
-									.
+									{heldKeys.keys.join(' + ')}.
 								</Table.Cell>
 							</Table.Row>
 						{/each}
@@ -226,24 +276,21 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-{#if chordDisplay}
+{#if activeChord}
 	<div class="incant-chord-display">
-		<Kbds keys={chordDisplay.completedSteps} isChord={true} {formatShortcut} />
-		{#if chordDisplay.hasMore}
+		<Kbds sequence={activeChord.completedSteps} {formatShortcut} />
+		{#if activeChord.hasMore}
 			<span class="incant-chord-display-arrow">→</span>
 			<div class="incant-chord-display-next">
-				{#if chordDisplay.expiresAt}
-					<div class="incant-chord-display-progress">
-						<CircularProgress expiresAt={chordDisplay.expiresAt} />
-					</div>
-				{/if}
+				<div class="incant-chord-display-progress">
+					<CircularProgress expiresAt={activeChord.expiresAt} duration={activeChord.timeout} />
+				</div>
 			</div>
 		{/if}
 	</div>
 {/if}
 
 <style>
-	/* CSS Variables Default Values */
 	:root {
 		--incant-colors-primary: oklch(0.205 0 0);
 		--incant-colors-primary-foreground: oklch(0.985 0 0);
@@ -275,7 +322,6 @@
 		--incant-z-index-overlay: 50;
 	}
 
-	/* Palette Trigger Button */
 	:global(.incant-palette-trigger) {
 		display: inline-flex;
 		align-items: center;
@@ -319,7 +365,6 @@
 		height: 1rem;
 	}
 
-	/* Palette Description */
 	:global(.incant-palette-description) {
 		margin: 2rem 0;
 	}
@@ -330,7 +375,6 @@
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
-	/* Palette Table Cells */
 	:global(.incant-palette-cell-keys) {
 		font-weight: 500;
 	}
@@ -339,7 +383,6 @@
 		text-align: right;
 	}
 
-	/* Toggle Button */
 	:global(.incant-palette-toggle) {
 		display: inline-flex;
 		align-items: center;
@@ -368,14 +411,13 @@
 	}
 
 	:global(.incant-palette-toggle-icon.enabled) {
-		color: #10b981; /* green-500 */
+		color: #10b981;
 	}
 
 	:global(.incant-palette-toggle-icon.disabled) {
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
-	/* Empty State */
 	:global(.incant-palette-empty-state) {
 		text-align: center;
 		padding: 1rem 0;
@@ -383,7 +425,6 @@
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
-	/* Chord Display */
 	:global(.incant-chord-display) {
 		display: inline-flex;
 		align-items: center;

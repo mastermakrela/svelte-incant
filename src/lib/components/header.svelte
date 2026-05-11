@@ -146,7 +146,7 @@
 				href="https://github.com/mastermakrela/svelte-incant"
 				target="_blank"
 				{@attach shortcut({
-					keys: 'G',
+					hotkey: 'G',
 					description: 'Open GitHub'
 				})}
 			>

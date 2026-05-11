@@ -1,16 +1,9 @@
-import { PressedKeys, watch } from 'runed';
+import { getIsKeyHeld, type RegisterableHotkey } from '@tanstack/svelte-hotkeys';
+import { watch } from 'runed';
 import { mount, unmount } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 import OverlayComponent from './overlay-component.svelte';
-import {
-	add_shortcut,
-	remove_shortcut,
-	shortcuts,
-	slugify,
-	type Shortcut
-} from './palette.svelte.js';
-
-const pressed_keys = new PressedKeys();
+import { add_shortcut, isShortcutEnabled, remove_shortcut } from './palette.svelte.js';
 
 const voidElements = new Set([
 	'area',
@@ -29,19 +22,21 @@ const voidElements = new Set([
 	'wbr'
 ]);
 
-type ShortcutInput = Omit<Shortcut, 'action' | 'keys'> & {
-	keys: string | string[] | string[][];
+type ShortcutInput = {
+	hotkey: RegisterableHotkey;
+	description?: string;
 	action?: () => void;
 	click?: boolean;
 	preventDefault?: boolean;
+	enabled?: boolean;
 };
 
 function setupAnchor(
 	element: HTMLElement,
 	targetNode: HTMLElement,
 	isVoidElement: boolean,
-	keys: string | string[] | string[][]
-): { anchor: HTMLDivElement; instance: Record<string, unknown> } {
+	hotkey: RegisterableHotkey
+): { anchor: HTMLDivElement; instance: ReturnType<typeof mount> } {
 	const anchor = document.createElement('div');
 	anchor.style.pointerEvents = 'none';
 
@@ -65,26 +60,20 @@ function setupAnchor(
 
 	const instance = mount(OverlayComponent, {
 		target: anchor,
-		props: { keys }
-	}) as Record<string, unknown>;
+		props: { hotkey }
+	});
 
 	targetNode.appendChild(anchor);
 
 	return { anchor, instance };
 }
 
-function setupOutline(element: HTMLElement, keys: string | string[] | string[][]): void {
+function setupOutline(element: HTMLElement, hotkey: RegisterableHotkey): void {
 	element.style.transition = 'outline 0s, outline-offset 0s';
 
-	const slug = slugify(keys);
-
+	const altHeld = getIsKeyHeld('Alt');
 	watch(
-		() => {
-			const altPressed = pressed_keys.has('alt');
-			const shortcut = shortcuts[slug];
-			const isEnabled = shortcut?.enabled ?? true;
-			return altPressed && isEnabled;
-		},
+		() => altHeld.held && isShortcutEnabled(hotkey),
 		(should_show_outline) => {
 			if (should_show_outline) {
 				element.style.outline = '2px dotted #878787';
@@ -97,22 +86,21 @@ function setupOutline(element: HTMLElement, keys: string | string[] | string[][]
 	);
 }
 
-export function shortcut(shortcut: ShortcutInput): Attachment<HTMLElement> {
+export function shortcut(input: ShortcutInput): Attachment<HTMLElement> {
 	return (element) => {
-		const action = () => {
-			element.focus();
-			if (shortcut.click !== false) {
-				element.click();
+		add_shortcut({
+			hotkey: input.hotkey,
+			description: input.description,
+			preventDefault: input.preventDefault,
+			enabled: input.enabled,
+			action: () => {
+				element.focus();
+				if (input.click !== false) {
+					element.click();
+				}
+				input.action?.();
 			}
-			shortcut.action?.();
-		};
-
-		const shortcutData = {
-			...shortcut,
-			action
-		};
-
-		add_shortcut(shortcutData);
+		});
 
 		let targetNode: HTMLElement | null = element;
 		const tagName = element.tagName.toLowerCase();
@@ -123,17 +111,17 @@ export function shortcut(shortcut: ShortcutInput): Attachment<HTMLElement> {
 		}
 
 		if (!targetNode) {
-			remove_shortcut(shortcut.keys);
+			remove_shortcut(input.hotkey);
 			return () => {};
 		}
 
-		const { anchor, instance } = setupAnchor(element, targetNode, isVoidElement, shortcut.keys);
-		setupOutline(element, shortcut.keys);
+		const { anchor, instance } = setupAnchor(element, targetNode, isVoidElement, input.hotkey);
+		setupOutline(element, input.hotkey);
 
 		return () => {
 			unmount(instance);
 			anchor.remove();
-			remove_shortcut(shortcut.keys);
+			remove_shortcut(input.hotkey);
 		};
 	};
 }

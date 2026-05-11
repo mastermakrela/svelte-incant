@@ -52,7 +52,7 @@ Usage:
   import { Focus } from 'svelte-incant';
 </script>
 
-<Focus keys={['control', 'e']} description="Focus search input">
+<Focus hotkey="Control+E" description="Focus search input">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -67,7 +67,7 @@ Usage:
 </script>
 
 <Shortcut
-  keys={['control', 's']}
+  hotkey="Mod+S"
   description="Save document"
   action={() => console.log('Save document')}
 />
@@ -86,7 +86,7 @@ Usage:
   type="text"
   placeholder="Type something..."
   {@attach shortcut({
-    keys: ['meta', 'i'],
+    hotkey: 'Mod+I',
     description: 'Focus text input'
   })}
 />
@@ -182,11 +182,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Shortcut keys={['control', 's']} description="Save" action={save} />
-<Shortcut keys={['control', 'z']} description="Undo" action={undo} />
-<Shortcut keys={['control', 'y']} description="Redo" action={redo} />
+<Shortcut hotkey="Mod+S" description="Save" action={save} />
+<Shortcut hotkey="Mod+Z" description="Undo" action={undo} />
+<Shortcut hotkey="Mod+Y" description="Redo" action={redo} />
 
-<Focus keys={['control', 'f']} description="Find">
+<Focus hotkey="Mod+F" description="Find">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -199,11 +199,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Focus keys={['alt', 'h']} description="Go home">
+<Focus hotkey="Alt+H" description="Go home">
   <a href="/">Home</a>
 </Focus>
 
-<Focus keys={['alt', 'a']} description="Go to about">
+<Focus hotkey="Alt+A" description="Go to about">
   <a href="/about">About</a>
 </Focus>
 \`\`\`

@@ -5,12 +5,15 @@ export type { PalettePosition } from './palette.svelte';
 export { default as Shortcut } from './shortcut.svelte';
 
 export { shortcut } from './attachment.svelte.js';
-export { chordRegistry, chords, get_current_progress } from './chord.svelte.js';
+export { add_chord, isChordEnabled, remove_chord, toggle_chord } from './chord.svelte.js';
 export {
+	add_shortcut,
 	closePalette,
+	isShortcutEnabled,
 	openPalette,
 	paletteState,
-	shortcuts,
+	remove_shortcut,
+	toggle_shortcut,
 	togglePalette
 } from './palette.svelte.js';
 export { getIsMac, getKeyLabel, keyToSymbol } from './utils';

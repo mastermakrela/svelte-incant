@@ -1,27 +1,27 @@
 <script lang="ts">
+	import type { HotkeySequence } from '@tanstack/svelte-hotkeys';
 	import { watch } from 'runed';
-	import { onMount } from 'svelte';
 	import { add_chord, remove_chord } from './chord.svelte.js';
 
 	let {
-		steps,
+		sequence,
 		description,
 		action
 	}: {
-		steps: string[][];
+		sequence: HotkeySequence;
 		description?: string;
 		action: () => void;
 	} = $props();
 
-	watch([() => steps, () => description, () => action], () => {
+	watch([() => sequence, () => description, () => action], () => {
 		add_chord({
-			steps,
+			sequence,
 			description,
 			action
 		});
 
 		return () => {
-			remove_chord(steps);
+			remove_chord(sequence);
 		};
 	});
 </script>

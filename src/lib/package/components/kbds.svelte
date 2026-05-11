@@ -1,79 +1,37 @@
 <script lang="ts">
+	import { formatForDisplay, type RegisterableHotkey } from '@tanstack/svelte-hotkeys';
+	import { getIsMac } from '../utils.js';
 	import * as Kbd from './ui/kbd/index.js';
-	import { getKeyLabel, getIsMac } from '../utils.js';
 
 	let {
-		keys,
-		isChord = false,
+		hotkey,
+		sequence,
 		formatShortcut
 	}: {
-		keys: string | string[] | string[][];
-		isChord?: boolean;
-		formatShortcut?: (keys: string[][], isChord: boolean, isMac: boolean) => string;
+		hotkey?: RegisterableHotkey;
+		sequence?: RegisterableHotkey[];
+		formatShortcut?: (
+			hotkey: RegisterableHotkey | undefined,
+			sequence: RegisterableHotkey[] | undefined,
+			isMac: boolean
+		) => string;
 	} = $props();
 
 	const isMac = getIsMac();
+	const platform: 'mac' | 'windows' = $derived(isMac ? 'mac' : 'windows');
+	const isChordMode = $derived(sequence !== undefined);
 
-	type KeyCombination = string[];
-
-	const MODIFIER_KEYS = new Set([
-		'control',
-		'ctrl',
-		'alt',
-		'option',
-		'shift',
-		'meta',
-		'command',
-		'cmd'
-	]);
-
-	function isModifier(key: string): boolean {
-		return MODIFIER_KEYS.has(key.toLowerCase());
-	}
-
-	function sortKeys(keys: string[]): string[] {
-		return [...keys].sort((a, b) => {
-			const aIsModifier = isModifier(a);
-			const bIsModifier = isModifier(b);
-			if (aIsModifier && !bIsModifier) return -1;
-			if (!aIsModifier && bIsModifier) return 1;
-			return 0;
-		});
-	}
-
-	let keyGroups: KeyCombination[] = $derived(
-		typeof keys === 'string'
-			? [[keys]]
-			: Array.isArray(keys) && keys.length > 0 && typeof keys[0] === 'string'
-				? [sortKeys(keys as string[])]
-				: (keys as KeyCombination[]).map(sortKeys)
-	);
-
-	let isChordMode: boolean = $derived(isChord === true);
-
-	const formatter: Intl.ListFormat = $derived(
-		new Intl.ListFormat(
-			undefined,
-			isChordMode
-				? {
-						style: 'narrow',
-						type: 'unit'
-					}
-				: {
-						style: 'long',
-						type: 'disjunction'
-					}
-		)
-	);
-
-	const formattedParts = $derived.by(() => {
-		const combos = keyGroups.map((group) => group.map((key) => getKeyLabel(key, isMac)).join(' '));
-		return formatter.formatToParts(combos);
+	const tokens: string[] = $derived.by(() => {
+		if (hotkey !== undefined) {
+			return [formatForDisplay(hotkey, { platform, useSymbols: isMac })];
+		}
+		if (sequence) {
+			return sequence.map((step) => formatForDisplay(step, { platform, useSymbols: isMac }));
+		}
+		return [];
 	});
 
-	const customFormatted = $derived(
-		formatShortcut ? formatShortcut(keyGroups, isChordMode, isMac) : null
-	);
+	const customFormatted = $derived(formatShortcut ? formatShortcut(hotkey, sequence, isMac) : null);
 </script>
 
 {#if customFormatted !== null}
@@ -82,14 +40,15 @@
 	</Kbd.Group>
 {:else}
 	<Kbd.Group class="incant-kbds-container">
-		{#each formattedParts as part (part)}
-			{#if part.type === 'element'}
-				<Kbd.Root>{part.value}</Kbd.Root>
-			{:else if isChordMode}
-				<span class="incant-kbds-chord-separator">→</span>
-			{:else}
-				<span class="incant-kbds-separator">{part.value}</span>
+		{#each tokens as token, i (i)}
+			{#if i > 0}
+				{#if isChordMode}
+					<span class="incant-kbds-chord-separator">→</span>
+				{:else}
+					<span class="incant-kbds-separator">+</span>
+				{/if}
 			{/if}
+			<Kbd.Root>{token}</Kbd.Root>
 		{/each}
 	</Kbd.Group>
 {/if}
