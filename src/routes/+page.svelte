@@ -155,10 +155,47 @@
   <label for="note">Quick note</label>
   <input id="note" {@attach shortcut()} />         <!-- binds Control+Q -->`;
 
+	const outlineCode = `:root {
+	--incant-outline-width: 2px;
+	--incant-outline-style: dotted;
+	--incant-outline-color: #878787;
+	--incant-outline-offset: 2px;
+}`;
+
+	const outlineRadiusCode =
+		`<!-- Focus wraps its children in a div and the outline lands on that
+      wrapper, so the corner shape comes from Focus's own class -->
+ <Focus keys="Control+B" description="Save" class="rounded-none">
+  <Button>Save</Button>
+ </Focus>
+
+ <!-- The attachment has no wrapper, so the outline follows the
+      element you attach it to -->
+ <button class="rounded-none" {@attach shortcut({ keys: 'Control+S' })}>
+  Save
+ <` + `/button>`;
+
+	/** Each preset only sets the properties it changes; the rest fall back to the defaults. */
+	const outlinePresets = [
+		{ label: 'Default', css: '' },
+		{
+			label: 'Sharp & solid',
+			css: '--incant-outline-style: solid; --incant-outline-width: 1px; --incant-outline-offset: 0px; --incant-outline-color: currentColor;'
+		},
+		{
+			label: 'Bold dashed',
+			css: '--incant-outline-style: dashed; --incant-outline-width: 3px; --incant-outline-offset: 4px; --incant-outline-color: #e11d48;'
+		}
+	];
+
 	let position = $state<PalettePosition>('bottom-right');
 	let showRebinding = $state(false);
 	let sequenceTimeout = $state(1500);
 	let showDerived = $state(false);
+	let outlinePreset = $state(0);
+	let previewOutline = $state(false);
+
+	const outlineCss = $derived(outlinePresets[outlinePreset]?.css ?? '');
 </script>
 
 <Palette {position} showToggles={true} {showRebinding} {sequenceTimeout} />
@@ -513,6 +550,66 @@
 						</li>
 					{/each}
 				</ul>
+			</div>
+
+			<div class="mt-8 space-y-4">
+				<h3 class="text-lg font-medium">Styling the reveal outline</h3>
+
+				<p class="">
+					Holding the reveal modifier (<Kbd.Root>⌥</Kbd.Root> by default, see
+					<code>revealModifier</code>) outlines every element that has a shortcut. That outline is a
+					class — <code>.incant-revealed</code> — rather than an inline style, so it never overrides
+					an <code>outline</code> of your own. Four custom properties control it:
+				</p>
+
+				<CodeBlock language="css" code={outlineCode} />
+
+				<p class="">
+					There is deliberately no radius variable: <code>outline</code> follows the element's own
+					<code>border-radius</code>, so a project with sharp edges gets sharp outlines for free,
+					and a rounded one gets rounded corners. The element that carries the outline differs
+					between the two APIs:
+				</p>
+
+				<CodeBlock language="xml" code={outlineRadiusCode} />
+
+				<p class="text-sm text-muted-foreground">
+					Pick a preset and reveal the outline — the left box is rounded, the right one is square:
+				</p>
+
+				<Card.Root>
+					<Card.Content class="space-y-6">
+						<div class="flex flex-wrap gap-2 text-xs">
+							{#each outlinePresets as preset, i (preset.label)}
+								<Button
+									variant={outlinePreset === i ? 'secondary' : 'ghost'}
+									size="sm"
+									onclick={() => (outlinePreset = i)}
+								>
+									{preset.label}
+								</Button>
+							{/each}
+						</div>
+
+						<div class="flex flex-wrap items-center justify-center gap-10 py-4" style={outlineCss}>
+							<div
+								class="rounded-lg border px-4 py-2 text-sm"
+								class:incant-revealed={previewOutline}
+							>
+								rounded-lg
+							</div>
+							<div class="border px-4 py-2 text-sm" class:incant-revealed={previewOutline}>
+								square
+							</div>
+						</div>
+
+						<div class="text-center">
+							<Button variant="outline" onclick={() => (previewOutline = !previewOutline)}>
+								{previewOutline ? 'Hide' : 'Show'} the outline
+							</Button>
+						</div>
+					</Card.Content>
+				</Card.Root>
 			</div>
 		</section>
 
