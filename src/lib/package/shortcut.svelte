@@ -1,27 +1,35 @@
 <script lang="ts">
-	import type { Hotkey } from '@tanstack/hotkeys';
-	import { watch } from 'runed';
-	import { add_shortcut, remove_shortcut } from './palette.svelte.js';
+	import {
+		createHotkey,
+		normalizeRegisterableHotkey,
+		type RegisterableHotkey
+	} from '@tanstack/svelte-hotkeys';
+	import { toHotkeyTokens } from './hotkey-utils.js';
+	import { effectiveHotkey, hotkeyOptions, isSequencePrefix } from './palette.svelte.js';
 
 	let {
 		keys,
 		description,
-		action
+		action,
+		preventDefault
 	}: {
-		keys: Hotkey;
+		/** A checked hotkey string (`'Mod+Shift+S'`) or a `RawHotkey` object built at runtime. */
+		keys: RegisterableHotkey;
 		description?: string;
 		action: (keys: string[]) => void;
+		/** Defaults to the app-wide `preventDefault` set on `<Palette />`. */
+		preventDefault?: boolean;
 	} = $props();
 
-	watch([() => keys, () => description, () => action], ([keys, description, action]) => {
-		add_shortcut({
-			keys,
-			description,
-			action
-		});
+	const declared = $derived(normalizeRegisterableHotkey(keys));
+	const hotkey = $derived(effectiveHotkey(declared));
 
-		return () => {
-			remove_shortcut(keys);
-		};
-	});
+	createHotkey(
+		() => hotkey,
+		() => {
+			if (isSequencePrefix(hotkey)) return;
+			action(toHotkeyTokens(hotkey));
+		},
+		() => hotkeyOptions(declared, description, preventDefault, hotkey)
+	);
 </script>

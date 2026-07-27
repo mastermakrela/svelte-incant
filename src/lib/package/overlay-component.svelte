@@ -1,34 +1,22 @@
 <script lang="ts">
-	import { normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
-	import { onMount } from 'svelte';
+	import type { Hotkey } from '@tanstack/svelte-hotkeys';
 	import Kbds from './components/kbds.svelte';
-	import { toHotkeyTokens } from './hotkey-utils.js';
-	import { shortcuts } from './palette.svelte.js';
-	import { subscribePressedKeys } from './pressed-keys.svelte.js';
+	import { effectiveHotkey, isRevealed } from './palette.svelte.js';
 
 	export type OverlayComponentProps = {
-		keys: Hotkey;
+		/** The declared combo. The badge shows what it currently listens for. */
+		declared: Hotkey;
 	};
 
-	let { keys }: OverlayComponentProps = $props();
+	let { declared }: OverlayComponentProps = $props();
 
-	let pressed_keys = $state<string[]>([]);
-
-	onMount(() => {
-		return subscribePressedKeys((keys) => {
-			pressed_keys = keys;
-		});
-	});
-
-	const alt_pressed = $derived(pressed_keys.includes('alt'));
-	const normalized_keys = $derived(toHotkeyTokens(keys));
-	const shortcut = $derived(shortcuts[normalizeHotkey(keys)] ?? null);
-	const visible = $derived(alt_pressed && shortcut?.enabled !== false);
+	const hotkey = $derived(effectiveHotkey(declared));
+	const visible = $derived(isRevealed(declared));
 </script>
 
 {#if visible}
 	<div class="incant-overlay-component">
-		<Kbds keys={normalized_keys} />
+		<Kbds keys={hotkey} />
 	</div>
 {/if}
 
@@ -44,5 +32,20 @@
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
+	}
+
+	/*
+	 * Applied by the `shortcut()` attachment while the reveal modifier is held.
+	 * Lives here (rather than in `palette.svelte`) so the outline works even when no
+	 * `<Palette />` is mounted, and it is a class rather than an inline style so an
+	 * author's own `outline` is no longer stomped.
+	 */
+	:global(.incant-revealed) {
+		outline: var(--incant-outline-width, 2px) var(--incant-outline-style, dotted)
+			var(--incant-outline-color, #878787);
+		outline-offset: var(--incant-outline-offset, 2px);
+		transition:
+			outline 0s,
+			outline-offset 0s;
 	}
 </style>

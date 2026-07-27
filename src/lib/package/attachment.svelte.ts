@@ -1,9 +1,23 @@
-import { normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
+import {
+	getHotkeyManager,
+	normalizeHotkey,
+	normalizeRegisterableHotkey,
+	type Hotkey,
+	type RegisterableHotkey
+} from '@tanstack/svelte-hotkeys';
 import { mount, unmount, untrack } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
+import { toHotkeyTokens } from './hotkey-utils.js';
 import OverlayComponent from './overlay-component.svelte';
-import { add_shortcut, remove_shortcut, shortcuts, type Shortcut } from './palette.svelte.js';
-import { subscribePressedKeys } from './pressed-keys.svelte.js';
+import {
+	dynamicHotkeyOptions,
+	effectiveHotkey,
+	hotkeyOptions,
+	incantConfig,
+	isRevealed,
+	isSequencePrefix,
+	isTypingElement
+} from './palette.svelte.js';
 
 const voidElements = new Set([
 	'area',
@@ -22,159 +36,137 @@ const voidElements = new Set([
 	'wbr'
 ]);
 
-type ShortcutInput = Omit<Shortcut, 'action' | 'keys'> & {
-	keys: Hotkey;
+export type ShortcutConfig = {
+	/**
+	 * A checked hotkey string (`'Mod+Shift+S'`) or a `RawHotkey` object built at runtime.
+	 * Omit it to derive the key from the element's own text — see {@link deriveHotkey}.
+	 */
+	keys?: RegisterableHotkey;
+	description?: string;
 	action?: (keys: string[]) => void;
+	/** Click the element when the shortcut fires, on top of focusing it. Defaults to `true`. */
 	click?: boolean;
+	/** Defaults to the app-wide `preventDefault` set on `<Palette />`. */
 	preventDefault?: boolean;
 };
 
-type ShortcutAttachmentRecord = {
-	config: ShortcutInput;
-	attachment: Attachment<HTMLElement>;
-};
+const warnedAbout = new WeakSet<Element>();
 
-const shortcutAttachmentCache: Record<string, ShortcutAttachmentRecord> = {};
-
-function shortcutCacheKey(shortcut: ShortcutInput): string {
-	const normalizedKeys = normalizeHotkey(shortcut.keys);
-	return JSON.stringify({
-		keys: normalizedKeys,
-		description: shortcut.description ?? '',
-		click: shortcut.click !== false,
-		preventDefault: shortcut.preventDefault ?? false
-	});
+/**
+ * The text a key can be derived from. An `<input>` has none of its own, so its
+ * `<label>` stands in.
+ */
+function labelText(element: HTMLElement): string {
+	if (element instanceof HTMLInputElement) {
+		return Array.from(element.labels ?? [], (label) => label.textContent).join(' ');
+	}
+	return element.textContent ?? '';
 }
 
-function setupAnchor(
-	element: HTMLElement,
-	targetNode: HTMLElement,
-	isVoidElement: boolean,
-	keys: Hotkey
-): { anchor: HTMLDivElement; instance: Record<string, unknown> } {
+/**
+ * The first alphanumeric character of the element's text, prefixed with
+ * `incantConfig.deriveModifier`, so `<button {@attach shortcut()}>Bookmark</button>` binds
+ * `Control+B`. A bare letter would fire on ordinary typing and collide with everything, so
+ * the modifier is on by default; set `deriveModifier={null}` on `<Palette />` for bare keys.
+ * Collisions are left to TanStack's `conflictBehavior`, which warns about them.
+ */
+function deriveHotkey(element: HTMLElement): Hotkey | null {
+	const char = labelText(element).match(/[a-z0-9]/i)?.[0];
+	if (char) {
+		const modifier = incantConfig.deriveModifier;
+		const key = char.toUpperCase();
+		return normalizeHotkey(modifier ? `${modifier}+${key}` : key);
+	}
+
+	if (!warnedAbout.has(element)) {
+		warnedAbout.add(element);
+		console.warn('[incant] shortcut(): no `keys`, and no text to derive one from', element);
+	}
+	return null;
+}
+
+/** Absolutely positioned host for the hold-to-reveal badge. */
+function createAnchor(element: HTMLElement, isVoidElement: boolean): HTMLDivElement {
 	const anchor = document.createElement('div');
 	anchor.style.pointerEvents = 'none';
+	anchor.style.position = 'absolute';
 
 	if (isVoidElement) {
-		anchor.style.position = 'absolute';
 		anchor.style.left = `${element.offsetLeft}px`;
 		anchor.style.top = `${element.offsetTop}px`;
 		anchor.style.width = `${element.offsetWidth}px`;
 		anchor.style.height = `${element.offsetHeight}px`;
 	} else {
-		const style = window.getComputedStyle(element);
-		if (style.position === 'static') {
+		if (window.getComputedStyle(element).position === 'static') {
 			element.style.position = 'relative';
 		}
-		anchor.style.position = 'absolute';
 		anchor.style.top = '0';
 		anchor.style.left = '0';
 		anchor.style.width = '100%';
 		anchor.style.height = '100%';
 	}
 
-	const instance = mount(OverlayComponent, {
-		target: anchor,
-		props: { keys }
-	}) as Record<string, unknown>;
-
-	targetNode.appendChild(anchor);
-
-	return { anchor, instance };
+	return anchor;
 }
 
-function setupOutline(element: HTMLElement, keys: Hotkey): () => void {
-	element.style.transition = 'outline 0s, outline-offset 0s';
+/**
+ * Registers a global shortcut that focuses (and by default clicks) the element it is
+ * attached to, and shows the hold-to-reveal outline + badge for it.
+ */
+export function shortcut(config: ShortcutConfig = {}): Attachment<HTMLElement> {
+	return (element) => {
+		// The *declared* combo. Every user preference — enabled, rebound-to — is keyed by
+		// it, so it must not change when the shortcut is rebound.
+		const declared = config.keys ? normalizeRegisterableHotkey(config.keys) : deriveHotkey(element);
+		if (!declared) return;
 
-	const slug = normalizeHotkey(keys);
-	let latestPressedKeys: string[] = [];
+		// NOTE: deliberately NOT `createHotkeyAttachment`. That registers with
+		// `target: element`, so the shortcut would only fire once the element already
+		// has focus. incant's shortcuts are global, so register against `document`.
+		$effect(() => {
+			const hotkey = effectiveHotkey(declared);
+			const handle = getHotkeyManager().register(
+				hotkey,
+				(event) => {
+					if (isSequencePrefix(hotkey)) return;
 
-	const updateOutline = () => {
-		const altPressed = latestPressedKeys.includes('alt');
-		const isEnabled = untrack(() => shortcuts[slug]?.enabled ?? true);
+					element.focus();
+					if (config.click !== false) element.click();
+					config.action?.(toHotkeyTokens(hotkey));
 
-		if (altPressed && isEnabled) {
-			element.style.outline = '2px dotted #878787';
-			element.style.outlineOffset = '2px';
-		} else {
-			element.style.outline = '';
-			element.style.outlineOffset = '';
-		}
-	};
+					// If the shortcut moved focus into a text field (the element itself, or a
+					// field inside it, as with `<Focus>`), the very keystroke that triggered it
+					// would carry on to its default action and get typed into that field.
+					if (isTypingElement(element.ownerDocument.activeElement)) event.preventDefault();
+				},
+				untrack(() => hotkeyOptions(declared, config.description, config.preventDefault, hotkey))
+			);
 
-	const unsubscribePressedKeys = subscribePressedKeys((pressedKeys) => {
-		latestPressedKeys = pressedKeys;
-		updateOutline();
-	});
-
-	return () => {
-		element.style.outline = '';
-		element.style.outlineOffset = '';
-		unsubscribePressedKeys();
-	};
-}
-
-export function shortcut(shortcut: ShortcutInput): Attachment<HTMLElement> {
-	const cacheKey = shortcutCacheKey(shortcut);
-	const cached = shortcutAttachmentCache[cacheKey];
-	if (cached) {
-		cached.config = shortcut;
-		return cached.attachment;
-	}
-
-	const record: ShortcutAttachmentRecord = {
-		config: shortcut,
-		attachment: () => {}
-	};
-
-	const attachment: Attachment<HTMLElement> = (element) => {
-		const current = record.config;
-		const shortcutKeys = current.keys;
-		const action = (keys: string[]) => {
-			const latest = record.config;
-			element.focus();
-			if (latest.click !== false) {
-				element.click();
-			}
-			latest.action?.(keys);
-		};
-
-		untrack(() => {
-			add_shortcut({
-				...current,
-				action
+			// Toggling from the palette must not re-register: that would move the row to
+			// the end of the (insertion-ordered) registry. Same for the app-wide defaults.
+			$effect(() => {
+				handle.setOptions(dynamicHotkeyOptions(declared, config.preventDefault));
 			});
+
+			return () => handle.unregister();
 		});
 
-		let targetNode: HTMLElement | null = element;
-		const tagName = element.tagName.toLowerCase();
-		const isVoidElement = voidElements.has(tagName);
+		const isVoidElement = voidElements.has(element.tagName.toLowerCase());
+		const host = isVoidElement ? element.parentElement : element;
+		if (!host) return;
 
-		if (isVoidElement) {
-			targetNode = element.parentElement;
-		}
+		const anchor = createAnchor(element, isVoidElement);
+		const overlay = mount(OverlayComponent, { target: anchor, props: { declared } });
+		host.appendChild(anchor);
 
-		if (!targetNode) {
-			untrack(() => {
-				remove_shortcut(shortcutKeys);
-			});
-			return () => {};
-		}
-
-		const { anchor, instance } = setupAnchor(element, targetNode, isVoidElement, shortcutKeys);
-		const cleanupOutline = setupOutline(element, shortcutKeys);
+		$effect(() => {
+			element.classList.toggle('incant-revealed', isRevealed(declared));
+		});
 
 		return () => {
-			cleanupOutline();
-			unmount(instance);
+			element.classList.remove('incant-revealed');
+			unmount(overlay);
 			anchor.remove();
-			untrack(() => {
-				remove_shortcut(shortcutKeys);
-			});
 		};
 	};
-
-	record.attachment = attachment;
-	shortcutAttachmentCache[cacheKey] = record;
-	return attachment;
 }

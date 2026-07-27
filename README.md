@@ -10,7 +10,16 @@ Install the package:
 bun add svelte-incant
 ```
 
-Peer dependencies (`svelte`, `bits-ui`) will be installed automatically.
+Peer dependencies (`svelte`, `bits-ui`, `@tanstack/hotkeys`, `@tanstack/svelte-hotkeys`) will be
+installed automatically.
+
+Incant uses [TanStack Hotkeys](https://tanstack.com/hotkeys) as its matching engine. Both TanStack
+packages are peer dependencies so that your app and incant share **one** hotkey registry — every
+manager is a module-level singleton, so a duplicate install would split registrations in two.
+Shortcuts you register directly with TanStack Hotkeys live in that same registry (so conflict
+warnings cover both), but the palette lists only the shortcuts registered through incant.
+
+Requires Svelte `^5.42.0` (the TanStack Svelte adapter uses `createContext`).
 
 The package uses CSS custom properties (CSS variables) for styling, which work with any CSS framework or plain CSS.
 
@@ -28,6 +37,10 @@ Add `Palette` component to your root layout to enable the shortcut overlay:
 <!-- ... -->
 ```
 
+Mount it unconditionally (not behind an `{#if}` or a lazy import): `Palette` carries the app-wide
+defaults, and a `shortcut()` attachment that mounts first derives its key against the built-in
+defaults instead.
+
 Register keyboard shortcuts with the `Shortcut` component:
 
 ```svelte
@@ -36,7 +49,7 @@ Register keyboard shortcuts with the `Shortcut` component:
 </script>
 
 <Shortcut
-	keys="control+s"
+	keys="Control+S"
 	description="Save document"
 	action={(keys) => console.log('Save document', keys)}
 />
@@ -44,10 +57,36 @@ Register keyboard shortcuts with the `Shortcut` component:
 
 The `action` callback receives the matched key combo (`string[]`), which is helpful when multiple combos share one description (e.g., arrow keys for navigation).
 
-Hotkeys use strict TanStack-style plus notation (`Control+Shift+K`).  
-Sequences (used by `Chord`) use space-separated steps (`Control+K B`).
+### Hotkey syntax
 
-For sequential key combinations (chords), use the `Chord` component. Chords are multi-step sequences where you press one combination (e.g., `Cmd+K`), then another (e.g., `B`) to activate them.
+Hotkeys use TanStack's plus notation (`Control+Shift+K`), and `keys` is typed as TanStack's
+`RegisterableHotkey`, so your editor autocompletes every valid combination and a typo is a
+**compile error** rather than a shortcut that silently never fires:
+
+```svelte
+<Shortcut keys="Mod+Shift+S" … />
+<!-- <Shortcut keys="Comtrol+S" … />  ← Type error -->
+```
+
+Use `Mod` for the platform-adaptive modifier (Command on macOS, Control elsewhere).
+
+If a hotkey is only known at runtime — read from user settings, a config file, a server response —
+the string type can't check it. Pass a `RawHotkey` object instead; it is TanStack's escape hatch
+and needs no cast:
+
+```svelte
+<script lang="ts">
+	import type { RawHotkey } from 'svelte-incant';
+
+	let { binding }: { binding: RawHotkey } = $props(); // e.g. { key: 'S', mod: true, shift: true }
+</script>
+
+<Shortcut keys={binding} description="Save document" action={save} />
+```
+
+For sequential key combinations (chords), use the `Chord` component. Chords are multi-step sequences where you press one combination (e.g., `Mod+K`), then another (e.g., `B`) to activate them.
+
+Pass the steps as an array — each step is checked and autocompleted individually:
 
 ```svelte
 <script>
@@ -55,10 +94,17 @@ For sequential key combinations (chords), use the `Chord` component. Chords are 
 </script>
 
 <Chord
-	steps="Control+K B"
+	steps={['Mod+K', 'B']}
 	description="Open bookmarks"
 	action={() => console.log('Open bookmarks')}
 />
+```
+
+The space-separated string form is still supported for dynamic sequences, but it is a plain
+`string` and gets no checking:
+
+```svelte
+<Chord steps="Mod+K B" description="Open bookmarks" action={openBookmarks} />
 ```
 
 For focusing elements (like inputs), use the `Focus` component:
@@ -68,7 +114,7 @@ For focusing elements (like inputs), use the `Focus` component:
 	import { Focus } from 'svelte-incant';
 </script>
 
-<Focus keys="control+e" description="Focus search input">
+<Focus keys="Control+E" description="Focus search input">
 	<input type="text" placeholder="Search..." />
 </Focus>
 ```
@@ -84,7 +130,7 @@ Or attach shortcuts directly to an element using the `@attach` directive:
 	type="text"
 	placeholder="Type something..."
 	{@attach shortcut({
-		keys: 'meta+i',
+		keys: 'Meta+I',
 		description: 'Focus text input'
 	})}
 />
@@ -113,6 +159,83 @@ The `Palette` component accepts several props for customization:
 
 - `position`: Controls where the trigger button appears. Options: `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right` (default), or `none` (hides the trigger).
 - `showToggles`: Boolean (default `false`). If `true`, adds a column to the palette allowing users to manually enable/disable specific shortcuts.
+- `revealModifier`: `'Alt'` (default), `'Control'`, `'Shift'` or `'Meta'`. The modifier the user holds to reveal an outline and a key badge on every element that has a shortcut.
+- `showRebinding`: Boolean (default `false`). If `true`, adds a column letting users record a replacement combo for any shortcut. See below.
+- `deriveModifier`: `'Control'` (default), `'Alt'`, `'Shift'`, `'Meta'` or `null`. Modifier prefixed to keys derived from element text when `shortcut()` is called with no `keys`. `null` derives bare keys.
+- `sequenceTimeout`: Number, milliseconds (default `1500`). App-wide default for how long a chord waits for its next step.
+- `preventDefault`: Boolean (default `false`). App-wide default for every shortcut and chord. Individual `Shortcut` / `Chord` / `shortcut()` props still win.
+
+`sequenceTimeout` and `preventDefault` are read by the `Shortcut` and `Chord` components **and** by
+the `shortcut()` attachment, so all three behave identically.
+
+### Rebinding shortcuts
+
+With `showRebinding`, each palette row gains a record button. Press any combination to rebind,
+`Esc` to cancel, or `Backspace` to restore the shortcut's declared default.
+
+```svelte
+<Palette showRebinding={true} />
+```
+
+Overrides are keyed by the combo **as declared in your markup**, so a rebound shortcut keeps its
+position in the palette and keeps its enabled/disabled state, and the override survives the
+component unmounting and remounting.
+
+Three limitations worth knowing:
+
+- **Overrides are in-memory only.** They are lost on reload. `rebind()` is exported, so you can
+  persist them yourself:
+
+  ```ts
+  import { rebind } from 'svelte-incant';
+
+  rebind('Control+L', ['Control+Y']); // apply a stored override
+  rebind('Control+L', []); // clear it, back to the declared default
+  ```
+
+- **Rebinding onto a combo that is already taken is allowed, not rejected.** Both shortcuts then
+  fire, and TanStack logs a conflict warning to the console. If you need it to be exclusive,
+  check against `shortcuts.current` before calling `rebind()`.
+- Rebinding a chord records a whole sequence, so every step is replaced at once.
+
+### Keys derived from element text
+
+Call `shortcut()` with no `keys` and the first alphanumeric character of the element's text
+becomes the shortcut, prefixed with a modifier:
+
+```svelte
+<button {@attach shortcut()}>Duplicate</button>
+<!-- binds Control+D -->
+```
+
+An `<input>` has no text of its own, so its associated `<label>` is used instead.
+
+The modifier is `Control` by default and is set app-wide with the `deriveModifier` prop on
+`<Palette />`. A bare letter would fire during ordinary typing and collide with almost anything,
+so it is opt-in:
+
+```svelte
+<Palette deriveModifier="Alt" />
+<Palette deriveModifier={null} />
+<!-- bare keys: B, Q — use with care -->
+```
+
+If no character can be derived, nothing is registered and a warning is logged. Derived keys are
+still single characters and collide easily — the usual conflict warning applies.
+
+### Styling the hold-to-reveal outline
+
+The outline is a class (`.incant-revealed`), not an inline style, so it no longer overrides an
+outline of your own. Tune it with the same CSS custom properties as everything else:
+
+```css
+:root {
+	--incant-outline-width: 2px;
+	--incant-outline-style: dotted;
+	--incant-outline-color: #878787;
+	--incant-outline-offset: 2px;
+}
+```
 
 ## Customization
 

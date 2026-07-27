@@ -5,7 +5,7 @@ export async function GET() {
 
 ## Package Information
 Name: svelte-incant
-Version: 0.8.0
+Version: 0.9.0
 Description: A keyboard shortcut management library for Svelte 5
 Repository: https://github.com/mastermakrela/svelte-incant
 Documentation: https://svelte-incant.mastermakrela.com/
@@ -43,6 +43,42 @@ Usage:
 Props:
 - position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'none' (default: 'bottom-right')
 - showToggles: boolean (default: false) - Show enable/disable toggles for shortcuts
+- revealModifier: 'Alt' | 'Control' | 'Shift' | 'Meta' (default: 'Alt') - Modifier the user holds to reveal an outline and a key badge on every element that has a shortcut
+- showRebinding: boolean (default: false) - Add a column letting users record a replacement combo per shortcut. Esc cancels, Backspace restores the declared default.
+- deriveModifier: 'Control' (default) | 'Alt' | 'Shift' | 'Meta' | null - Modifier prefixed to keys derived from element text when shortcut() is called with no keys; null derives bare keys
+- sequenceTimeout: number, ms (default: 1500) - App-wide default for how long a chord waits for its next step
+- preventDefault: boolean (default: false) - App-wide default for every shortcut and chord; per-shortcut props still win
+
+sequenceTimeout and preventDefault are honoured by the Shortcut and Chord components and by the
+shortcut() attachment alike.
+
+### Rebinding
+Overrides are keyed by the combo as declared in markup, so a rebound shortcut keeps its palette
+position and its enabled/disabled state, and survives unmount/remount. They are in-memory only and
+lost on reload; use the exported rebind() to persist them yourself:
+
+\`\`\`ts
+import { rebind } from 'svelte-incant';
+rebind('Control+L', ['Control+Y']); // apply an override
+rebind('Control+L', []); // clear it
+\`\`\`
+
+Rebinding onto an already-registered combo is allowed, not rejected: both shortcuts fire and
+TanStack logs a conflict warning.
+
+### Keys derived from element text
+Call shortcut() with no keys and the first alphanumeric character of the element's text becomes the
+shortcut, prefixed with the deriveModifier ('Control' by default). An <input> has no text of its
+own, so its associated <label> is used instead. If nothing can be derived, nothing is registered
+and a warning is logged.
+
+\`\`\`svelte
+<button {@attach shortcut()}>Duplicate</button>
+<!-- binds Control+D -->
+\`\`\`
+
+Set deriveModifier={null} on <Palette /> for bare keys — they fire during ordinary typing, so this
+is opt-in.
 
 ### Focus Component
 Manages focus states with keyboard shortcuts.
@@ -53,7 +89,7 @@ Usage:
   import { Focus } from 'svelte-incant';
 </script>
 
-<Focus keys="control+e" description="Focus search input">
+<Focus keys="Control+E" description="Focus search input">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -68,14 +104,15 @@ Usage:
 </script>
 
 <Shortcut
-  keys="control+s"
+  keys="Control+S"
   description="Save document"
   action={() => console.log('Save document')}
 />
 \`\`\`
 
 ### Chord Component
-Registers multi-step sequences (TanStack syntax with space-separated steps).
+Registers multi-step sequences. Prefer the array form: every step is typed as a \`Hotkey\`, so it
+autocompletes and a typo is a compile error.
 
 Usage:
 \`\`\`svelte
@@ -84,15 +121,27 @@ Usage:
 </script>
 
 <Chord
-  steps="Mod+K B"
+  steps={['Mod+K', 'B']}
   description="Open bookmarks"
   action={() => console.log('Open bookmarks')}
 />
+
+<!-- Space-separated string form: still supported, but a plain string and unchecked -->
+<Chord steps="Mod+K B" description="Open bookmarks" action={openBookmarks} />
 \`\`\`
 
 ### Hotkey Syntax
-- Single hotkeys use strict TanStack DSL, e.g. \`Control+S\`, \`Mod+K\`, \`Shift+?\`
-- Chord sequences are hotkeys separated by spaces, e.g. \`Mod+K B\`
+- Single hotkeys use TanStack's plus notation, e.g. \`Control+S\`, \`Mod+K\`, \`Mod+Shift+S\`
+- \`keys\` on \`Shortcut\`, \`Focus\` and \`shortcut()\` is typed as \`RegisterableHotkey\`
+  (\`Hotkey | RawHotkey\`): valid combinations autocomplete and \`keys="Comtrol+S"\` is a type error
+- Use \`Mod\` for the platform-adaptive modifier (Command on macOS, Control elsewhere)
+- For hotkeys only known at runtime (user settings, config), pass a \`RawHotkey\` object instead of a
+  string — no cast needed:
+  \`\`\`svelte
+  <Shortcut keys={{ key: 'S', mod: true, shift: true }} description="Save" action={save} />
+  \`\`\`
+- Chord sequences are best written as \`Hotkey\` arrays, e.g. \`{['Mod+K', 'B']}\`; the
+  space-separated string \`"Mod+K B"\` is also accepted but unchecked
 
 ### @attach Directive
 Attaches shortcuts directly to elements without wrapper divs.
@@ -107,7 +156,7 @@ Usage:
   type="text"
   placeholder="Type something..."
   {@attach shortcut({
-    keys: 'meta+i',
+    keys: 'Meta+I',
     description: 'Focus text input'
   })}
 />
@@ -174,10 +223,17 @@ The library uses CSS custom properties for theming:
 - Shortcut: Component for registering shortcuts
 - Chord: Component for sequence shortcuts
 - shortcut: Directive for attaching shortcuts
+- openPalette / closePalette / togglePalette / paletteState: Programmatic palette control
+- rebind: Apply or clear a stored key override
+- shortcuts: Reactive read-only view of every registered incant shortcut
+- Types: Hotkey, RawHotkey, RegisterableHotkey, HotkeySequence, SequenceInput, SequenceSpec,
+  CanonicalModifier, IncantShortcut, ShortcutConfig, PalettePosition
 
 ### Peer Dependencies
-- svelte: ^5.0.0
+- svelte: ^5.42.0
 - bits-ui: ^2.0.0
+- @tanstack/hotkeys: 0.8.0
+- @tanstack/svelte-hotkeys: ^0.10.0
 
 ## Usage Patterns
 
@@ -189,7 +245,7 @@ The library uses CSS custom properties for theming:
 ### Common Patterns
 - Use Focus for input fields and search boxes
 - Use Shortcut for actions like save, copy, paste
-- Use Chord for command-palette style flows (e.g. \`Mod+K B\`)
+- Use Chord for command-palette style flows (e.g. \`{['Mod+K', 'B']}\`)
 - Use @attach for elements that shouldn't be wrapped
 - Configure Palette position based on your UI design
 
@@ -203,11 +259,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Shortcut keys="control+s" description="Save" action={save} />
-<Shortcut keys="control+z" description="Undo" action={undo} />
-<Shortcut keys="control+y" description="Redo" action={redo} />
+<Shortcut keys="Control+S" description="Save" action={save} />
+<Shortcut keys="Control+Z" description="Undo" action={undo} />
+<Shortcut keys="Control+Y" description="Redo" action={redo} />
 
-<Focus keys="control+f" description="Find">
+<Focus keys="Control+F" description="Find">
   <input type="text" placeholder="Search..." />
 </Focus>
 \`\`\`
@@ -220,11 +276,11 @@ The library uses CSS custom properties for theming:
 
 <Palette />
 
-<Focus keys="alt+h" description="Go home">
+<Focus keys="Alt+H" description="Go home">
   <a href="/">Home</a>
 </Focus>
 
-<Focus keys="alt+a" description="Go to about">
+<Focus keys="Alt+A" description="Go to about">
   <a href="/about">About</a>
 </Focus>
 \`\`\`
@@ -248,7 +304,7 @@ https://github.com/mastermakrela/svelte-incant/blob/main/CONTRIBUTING.md
 
 ---
 Generated on: ${new Date().toISOString()}
-Package: svelte-incant v0.8.0
+Package: svelte-incant v0.9.0
 This file is designed to help LLMs understand and use this package effectively.
 `;
 

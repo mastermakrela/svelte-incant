@@ -1,27 +1,6 @@
 <script lang="ts">
-	import { CHORD_TIMEOUT_MS } from '../chord.svelte.js';
-
-	let { expiresAt }: { expiresAt: number } = $props();
-
-	let progress = $state(1);
-	let frame: number;
-
-	function update() {
-		const now = Date.now();
-		const remaining = Math.max(0, expiresAt - now);
-		progress = remaining / CHORD_TIMEOUT_MS;
-
-		if (remaining > 0) {
-			frame = requestAnimationFrame(update);
-		} else {
-			progress = 0;
-		}
-	}
-
-	$effect(() => {
-		update();
-		return () => cancelAnimationFrame(frame);
-	});
+	/** Remaining fraction of the chord timeout, 1 → full ring, 0 → empty. */
+	let { progress }: { progress: number } = $props();
 </script>
 
 <svg class="incant-circular-progress" viewBox="0 0 24 24">

@@ -10,50 +10,43 @@
 </script>
 
 <script lang="ts">
-	import { Keyboard, ToggleLeft, ToggleRight } from '@lucide/svelte';
-	import { onMount } from 'svelte';
-	import { chordRegistry, slugifyChord, type Chord as ChordType } from './chord.svelte.js';
+	import {
+		createHotkeyRecorder,
+		createHotkeySequenceRecorder,
+		type CanonicalModifier,
+		type HotkeySequence
+	} from '@tanstack/svelte-hotkeys';
+	import { Keyboard, Pencil, ToggleLeft, ToggleRight } from '@lucide/svelte';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
-	import { toHotkeyTokens, toSequenceStepTokens } from './hotkey-utils.js';
-	import { paletteState, registry, togglePalette } from './palette.svelte.js';
-	import { subscribePressedKeys } from './pressed-keys.svelte.js';
+	import { toSequenceStepTokens } from './hotkey-utils.js';
+	import {
+		effectiveSequenceMatchedSteps,
+		heldKeyNames,
+		incantConfig,
+		incantSequences,
+		needsSequenceProgressClock,
+		paletteState,
+		rebind,
+		shortcuts,
+		togglePalette,
+		SEQUENCE_TIMEOUT_MS,
+		type IncantShortcut
+	} from './palette.svelte.js';
 	import Shortcut from './shortcut.svelte';
-
-	const currentProgress = $derived(chordRegistry.currentProgress);
-
-	const chords = $derived.by(() => chordRegistry.getChords());
-
-	const allShortcutsAndChords = $derived.by(() => {
-		const allShortcuts = registry.getShortcuts();
-		const allChords = chords;
-
-		const shortcutsWithChords = allShortcuts.map((s) => ({
-			type: 'shortcut' as const,
-			keys: s.keys,
-			description: s.description,
-			enabled: s.enabled,
-			toggle: () => registry.toggle(s.keys)
-		}));
-
-		const chordsItems = allChords.map((c: ChordType) => ({
-			type: 'chord' as const,
-			keys: c.steps,
-			description: c.description,
-			enabled: c.enabled,
-			toggle: () => chordRegistry.toggle(c.steps)
-		}));
-
-		return [...shortcutsWithChords, ...chordsItems];
-	});
 
 	let {
 		position = 'bottom-right',
 		showToggles = false,
+		showRebinding = false,
+		revealModifier = 'Alt',
+		deriveModifier = 'Control',
+		sequenceTimeout = SEQUENCE_TIMEOUT_MS,
+		preventDefault = false,
 		texts = {
 			shortcutDescription: 'Open shortcut palette',
 			tooltipContent: 'Press ?',
@@ -63,17 +56,36 @@
 			tableHeaders: {
 				keys: 'Keys',
 				description: 'Description',
-				enabled: 'Enabled'
+				enabled: 'Enabled',
+				rebind: 'Rebind'
 			},
 			toggleLabels: {
 				enable: 'Enable shortcut',
 				disable: 'Disable shortcut'
+			},
+			rebindLabels: {
+				start: 'Record a new key combination',
+				recording: 'Press keys… Esc cancels, ⌫ restores the default',
+				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
 			},
 			emptyState: 'No shortcuts containing'
 		}
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
+		/** Let the user record a replacement combo for any listed shortcut. */
+		showRebinding?: boolean;
+		/** Modifier the user holds to reveal the outline + badge on every shortcut element. */
+		revealModifier?: CanonicalModifier;
+		/**
+		 * Modifier prefixed to keys derived from element text by `shortcut()` with no `keys`.
+		 * `null` derives bare keys, which fire on ordinary typing — rarely what you want.
+		 */
+		deriveModifier?: CanonicalModifier | null;
+		/** App-wide chord step timeout, in ms. */
+		sequenceTimeout?: number;
+		/** App-wide default for `preventDefault` on every shortcut and chord. */
+		preventDefault?: boolean;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -83,10 +95,16 @@
 				keys?: string;
 				description?: string;
 				enabled?: string;
+				rebind?: string;
 			};
 			toggleLabels?: {
 				enable?: string;
 				disable?: string;
+			};
+			rebindLabels?: {
+				start?: string;
+				recording?: string;
+				recordingChord?: string;
 			};
 			emptyState?: string;
 		};
@@ -94,64 +112,118 @@
 
 	let tooltip_open = $state(false);
 
-	let all_keys = $state<string[]>([]);
+	// `deriveModifier` is read once, when an attachment derives its key at mount. Effects run
+	// after that, so it has to be written synchronously here or an attachment mounting before
+	// this palette would derive against the stale default. Capturing only the initial value is
+	// the point here; the effect below keeps it in sync afterwards.
+	// svelte-ignore state_referenced_locally
+	incantConfig.deriveModifier = deriveModifier;
 
-	onMount(() => {
-		return subscribePressedKeys((keys) => {
-			all_keys = keys;
-		});
+	// The one place the app-wide defaults are written. Everything else — components and
+	// the `shortcut()` attachment alike — reads them back out of `incantConfig`.
+	$effect(() => {
+		incantConfig.revealModifier = revealModifier;
+		incantConfig.deriveModifier = deriveModifier;
+		incantConfig.sequenceTimeout = sequenceTimeout;
+		incantConfig.preventDefault = preventDefault;
 	});
 
-	const chordDisplay = $derived.by(() => {
-		if (!currentProgress) return null;
-		const { steps, currentIndex, expiresAt } = currentProgress;
-		return {
-			completedSteps: steps.slice(0, currentIndex + 1),
-			hasMore: currentIndex < steps.length - 1,
-			expiresAt
-		};
+	// Rebinding. Both recorders call `onDestroy` internally, so they can only be created
+	// at component init — hence one pair for the whole palette, keyed by the declared
+	// combo of whichever row is currently recording.
+	let recording = $state<string | null>(null);
+
+	function finish(steps: HotkeySequence) {
+		if (recording) rebind(recording, steps);
+		recording = null;
+	}
+
+	const recorder = createHotkeyRecorder({
+		ignoreInputs: false,
+		onRecord: (hotkey) => finish(hotkey ? [hotkey] : []),
+		onCancel: () => (recording = null)
 	});
+
+	const sequenceRecorder = createHotkeySequenceRecorder({
+		ignoreInputs: false,
+		onRecord: (steps) => finish(steps),
+		onCancel: () => (recording = null)
+	});
+
+	function startRecording(item: IncantShortcut) {
+		recording = item.declared;
+		if (item.isChord) sequenceRecorder.startRecording();
+		else recorder.startRecording();
+	}
+
+	// Held keys are canonical-cased (`'Control'`), hotkey tokens are lower-cased.
+	const all_keys = $derived(heldKeyNames().map((key) => key.toLowerCase()));
 
 	const filtered_shortcuts = $derived.by(() => {
-		const _all_keys = all_keys.filter((key) => ['?', '/', ' ', 'tab'].indexOf(key) === -1);
-		return allShortcutsAndChords.filter((item) => {
-			const tokens =
-				item.type === 'shortcut'
-					? toHotkeyTokens(item.keys)
-					: toSequenceStepTokens(item.keys).flat();
-			const matches = tokens.some((key) =>
-				_all_keys.some((pressedKey) => key.toLowerCase() === pressedKey.toLowerCase())
-			);
-			return matches || _all_keys.length === 0;
-		});
+		const pressed = all_keys.filter((key) => !['?', '/', 'space', 'tab'].includes(key));
+		if (pressed.length === 0) return shortcuts.current;
+
+		return shortcuts.current.filter((item) =>
+			toSequenceStepTokens(item.steps)
+				.flat()
+				.some((token) => pressed.includes(token))
+		);
 	});
 
-	const positionStyles = $derived.by(() => {
-		switch (position) {
-			case 'top-left':
-				return 'left: 1rem; top: 1rem;';
-			case 'top-center':
-				return 'left: 50%; top: 1rem; transform: translateX(-50%);';
-			case 'top-right':
-				return 'right: 1rem; top: 1rem;';
-			case 'bottom-left':
-				return 'left: 1rem; bottom: 1rem;';
-			case 'bottom-center':
-				return 'left: 50%; bottom: 1rem; transform: translateX(-50%);';
-			case 'bottom-right':
-				return 'right: 1rem; bottom: 1rem;';
-			case 'none':
-				return 'display: none;';
-			default:
-				return 'right: 1rem; bottom: 1rem;';
-		}
+	// Chord progress. `matchedStepCount` only changes when the manager sees a key, and
+	// nothing fires when a partial match times out — so drive the countdown from one
+	// shared rAF, started only while at least one chord is actually mid-match.
+	let now = $state(Date.now());
+
+	$effect(() => {
+		const sequences = incantSequences();
+		if (!needsSequenceProgressClock(sequences, Date.now())) return;
+
+		let frame = requestAnimationFrame(function tick() {
+			now = Date.now();
+			if (needsSequenceProgressClock(sequences, now)) frame = requestAnimationFrame(tick);
+		});
+
+		return () => cancelAnimationFrame(frame);
 	});
+
+	const chordDisplays = $derived.by(() =>
+		incantSequences()
+			.map((reg) => ({ reg, matched: effectiveSequenceMatchedSteps(reg, now) }))
+			.filter(({ matched }) => matched > 0)
+			.map(({ reg, matched }) => ({
+				id: reg.id,
+				completedSteps: reg.sequence.slice(0, matched),
+				hasMore: matched < reg.sequence.length,
+				progress: Math.max(
+					0,
+					1 - (now - reg.partialMatchLastKeyTime) / (reg.options.timeout ?? SEQUENCE_TIMEOUT_MS)
+				)
+			}))
+	);
+
+	const POSITION_STYLES: Record<PalettePosition, string> = {
+		'top-left': 'left: 1rem; top: 1rem;',
+		'top-center': 'left: 50%; top: 1rem; transform: translateX(-50%);',
+		'top-right': 'right: 1rem; top: 1rem;',
+		'bottom-left': 'left: 1rem; bottom: 1rem;',
+		'bottom-center': 'left: 50%; bottom: 1rem; transform: translateX(-50%);',
+		'bottom-right': 'right: 1rem; bottom: 1rem;',
+		none: 'display: none;'
+	};
+
+	const positionStyles = $derived(POSITION_STYLES[position]);
 </script>
 
-<Shortcut keys="/" description={texts.shortcutDescription} action={togglePalette} />
+<!-- `?` as a RawHotkey: on every layout, whatever produces `?` (Shift+/ on US,
+     Shift+ß on QWERTZ) matches — the string `'?'` would fail TanStack's shiftKey check. -->
+<Shortcut
+	keys={{ key: '?', shift: true }}
+	description={texts.shortcutDescription}
+	action={togglePalette}
+/>
 
 <Tooltip.Provider delayDuration={0}>
-	<!-- <Tooltip.Root bind:open={tooltip_open}> -->
 	<Tooltip.Root bind:open={tooltip_open}>
 		<Tooltip.Trigger onclick={togglePalette}>
 			{#snippet child({ props })}
@@ -185,13 +257,18 @@
 									>{texts.tableHeaders?.enabled ?? 'Enabled'}</Table.Head
 								>
 							{/if}
+							{#if showRebinding}
+								<Table.Head class="incant-palette-cell-actions"
+									>{texts.tableHeaders?.rebind ?? 'Rebind'}</Table.Head
+								>
+							{/if}
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filtered_shortcuts as item (item.type === 'shortcut' ? item.keys : slugifyChord(item.keys))}
+						{#each filtered_shortcuts as item (item.id)}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={item.keys} isChord={item.type === 'chord'} />
+									<Kbds keys={item.steps} isChord={item.isChord} />
 								</Table.Cell>
 								<Table.Cell>{item.description}</Table.Cell>
 								{#if showToggles}
@@ -205,7 +282,7 @@
 												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
 											tabindex="0"
 										>
-											{#if item.enabled !== false}
+											{#if item.enabled}
 												<ToggleRight class="incant-palette-toggle-icon enabled" />
 											{:else}
 												<ToggleLeft class="incant-palette-toggle-icon disabled" />
@@ -213,10 +290,42 @@
 										</button>
 									</Table.Cell>
 								{/if}
+								{#if showRebinding}
+									<Table.Cell class="incant-palette-cell-actions">
+										{#if recording === item.declared}
+											<span class="incant-palette-recording">
+												{#if item.isChord}
+													<Kbds keys={sequenceRecorder.steps} isChord={true} />
+													{texts.rebindLabels?.recordingChord ??
+														'Press each step… Enter saves, ⌫ undoes, Esc cancels'}
+												{:else}
+													{texts.rebindLabels?.recording ??
+														'Press keys… Esc cancels, ⌫ restores the default'}
+												{/if}
+											</span>
+										{:else}
+											<button
+												type="button"
+												class={[
+													'incant-palette-toggle',
+													{ 'incant-palette-rebound': item.rebound }
+												]}
+												onclick={() => startRecording(item)}
+												aria-label={texts.rebindLabels?.start ?? 'Record a new key combination'}
+												tabindex="0"
+											>
+												<Pencil class="incant-palette-toggle-icon" />
+											</button>
+										{/if}
+									</Table.Cell>
+								{/if}
 							</Table.Row>
 						{:else}
 							<Table.Row>
-								<Table.Cell colspan={showToggles ? 3 : 2} class="incant-palette-empty-state">
+								<Table.Cell
+									colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
+									class="incant-palette-empty-state"
+								>
 									{texts.emptyState}
 									<Kbds keys={all_keys} />
 
@@ -231,19 +340,21 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-{#if chordDisplay}
-	<div class="incant-chord-display">
-		<Kbds keys={chordDisplay.completedSteps} isChord={true} />
-		{#if chordDisplay.hasMore}
-			<span class="incant-chord-display-arrow">→</span>
-			<div class="incant-chord-display-next">
-				{#if chordDisplay.expiresAt}
-					<div class="incant-chord-display-progress">
-						<CircularProgress expiresAt={chordDisplay.expiresAt} />
+{#if chordDisplays.length > 0}
+	<div class="incant-chord-displays">
+		{#each chordDisplays as chord (chord.id)}
+			<div class="incant-chord-display">
+				<Kbds keys={chord.completedSteps} isChord={true} />
+				{#if chord.hasMore}
+					<span class="incant-chord-display-arrow">→</span>
+					<div class="incant-chord-display-next">
+						<div class="incant-chord-display-progress">
+							<CircularProgress progress={chord.progress} />
+						</div>
 					</div>
 				{/if}
 			</div>
-		{/if}
+		{/each}
 	</div>
 {/if}
 
@@ -261,6 +372,10 @@
 		--incant-colors-overlay: hsla(0 0% 0% / 0.8);
 		--incant-kbd-bg: #f3f4f6;
 		--incant-kbd-color: #6b7280;
+		--incant-outline-width: 2px;
+		--incant-outline-style: dotted;
+		--incant-outline-color: #878787;
+		--incant-outline-offset: 2px;
 		--incant-spacing-1: 0.25rem;
 		--incant-spacing-2: 0.5rem;
 		--incant-spacing-3: 0.75rem;
@@ -380,6 +495,20 @@
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
+	/* Rebinding */
+	:global(.incant-palette-rebound) {
+		color: #10b981; /* green-500 — this row is no longer on its declared combo */
+	}
+
+	:global(.incant-palette-recording) {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--incant-spacing-2, 0.5rem);
+		font-size: var(--incant-font-size-xs, 0.75rem);
+		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
+		white-space: nowrap;
+	}
+
 	/* Empty State */
 	:global(.incant-palette-empty-state) {
 		text-align: center;
@@ -388,7 +517,18 @@
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
-	/* Chord Display */
+	/* Chord Display — one panel per chord currently mid-match */
+	:global(.incant-chord-displays) {
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: flex-start;
+		gap: 0.5rem;
+		position: fixed;
+		left: 1rem;
+		bottom: 1rem;
+		z-index: var(--incant-z-index-chord-display, 1000);
+	}
+
 	:global(.incant-chord-display) {
 		display: inline-flex;
 		align-items: center;
@@ -401,10 +541,6 @@
 		font-weight: 500;
 		white-space: nowrap;
 		box-shadow: var(--incant-shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
-		position: fixed;
-		left: 1rem;
-		bottom: 1rem;
-		z-index: var(--incant-z-index-chord-display, 1000);
 	}
 
 	:global(.incant-chord-display-arrow) {

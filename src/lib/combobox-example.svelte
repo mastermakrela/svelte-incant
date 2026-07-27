@@ -5,7 +5,7 @@
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import { shortcut } from '$lib/package/attachment.svelte.js';
+	import { shortcut } from '$lib';
 
 	import { cn } from '$lib/utils.js';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -59,7 +59,7 @@
           role="combobox"
           aria-expanded={open}
           {@attach shortcut({
-            keys: 'meta+k',
+            keys: 'Mod+J',
             description: 'Focus framework combobox'
           })}
         >
@@ -80,8 +80,8 @@
 
 <p class="text-sm text-muted-foreground">
 	Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌥</kbd> (alt) to see the focus
-	shortcut hint. Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌘ J</kbd> to focus the
-	combobox.
+	shortcut hint. Press
+	<kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌘J / Ctrl+J</kbd> to focus the combobox.
 </p>
 
 <Tabs.Root value="example" class="w-full">
@@ -98,7 +98,7 @@
 								role="combobox"
 								aria-expanded={open}
 								{@attach shortcut({
-									keys: 'Meta+J',
+									keys: 'Mod+J',
 									description: 'Focus framework combobox'
 								})}
 							>

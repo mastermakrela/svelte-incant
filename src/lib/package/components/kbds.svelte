@@ -1,34 +1,34 @@
 <script lang="ts">
-	import { formatForDisplay, normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
+	import {
+		detectPlatform,
+		formatForDisplay,
+		normalizeHotkey,
+		type Hotkey
+	} from '@tanstack/svelte-hotkeys';
 	import { parseSequence, tokensToHotkey, type SequenceSpec } from '../hotkey-utils.js';
 	import * as Kbd from './ui/kbd/index.js';
+
+	/** Display-only, so it takes whatever shape the caller already has — including token arrays. */
+	type KbdsInput = Hotkey | SequenceSpec | string[] | string[][];
 
 	let {
 		keys,
 		isChord = false
 	}: {
-		keys: Hotkey | SequenceSpec | string[] | string[][];
+		keys: KbdsInput;
 		isChord?: boolean;
 	} = $props();
 
-	function toHotkeyGroups(
-		value: Hotkey | SequenceSpec | string[] | string[][],
-		chordMode: boolean
-	): Hotkey[] {
+	function toHotkeyGroups(value: KbdsInput, chordMode: boolean): Hotkey[] {
 		if (typeof value === 'string') {
-			if (chordMode) {
-				return parseSequence(value as SequenceSpec);
-			}
-			return [normalizeHotkey(value ) ];
+			return chordMode ? parseSequence(value) : [normalizeHotkey(value)];
 		}
 
 		if (value.length === 0) return [];
 
 		if (typeof value[0] === 'string') {
-			if (chordMode) {
-				return (value []).map((step) => normalizeHotkey(step) );
-			}
-			return [tokensToHotkey(value as string[])];
+			const tokens = value as string[];
+			return chordMode ? tokens.map((step) => normalizeHotkey(step)) : [tokensToHotkey(tokens)];
 		}
 
 		return (value as string[][]).map((group) => tokensToHotkey(group));
@@ -36,36 +36,20 @@
 
 	let hotkeyGroups: Hotkey[] = $derived.by(() => toHotkeyGroups(keys, isChord));
 
-	const formatter: Intl.ListFormat = $derived(
-		new Intl.ListFormat(
-			undefined,
-			isChord
-				? {
-						style: 'narrow',
-						type: 'unit'
-					}
-				: {
-						style: 'long',
-						type: 'disjunction'
-					}
-		)
-	);
-
-	const formattedParts = $derived.by(() => {
-		const combos = hotkeyGroups.map((group) => formatForDisplay(group));
-		return formatter.formatToParts(combos);
-	});
+	// Mac symbols render tight (`⌘J`, not 0.8.0's `⌘ J`); Windows/Linux keep the
+	// default `+` between text labels (`Ctrl+Shift+S` — an empty separator would
+	// concatenate them into `CtrlShiftS`).
+	const displayOptions = detectPlatform() === 'mac' ? { separatorToken: '' } : {};
 </script>
 
 <Kbd.Group class="incant-kbds-container">
-	{#each formattedParts as part (part)}
-		{#if part.type === 'element'}
-			<Kbd.Root>{part.value}</Kbd.Root>
-		{:else if isChord}
-			<span class="incant-kbds-chord-separator">→</span>
-		{:else}
-			<span class="incant-kbds-separator">{part.value}</span>
+	{#each hotkeyGroups as group, index (index)}
+		{#if index > 0}
+			<span class={isChord ? 'incant-kbds-chord-separator' : 'incant-kbds-separator'}>
+				{isChord ? '→' : 'or'}
+			</span>
 		{/if}
+		<Kbd.Root>{formatForDisplay(group, displayOptions)}</Kbd.Root>
 	{/each}
 </Kbd.Group>
 

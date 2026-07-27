@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { normalizeHotkey, type Hotkey } from '@tanstack/hotkeys';
+	import type { RegisterableHotkey } from '@tanstack/svelte-hotkeys';
 	import type { Snippet } from 'svelte';
-	import type { Attachment } from 'svelte/attachments';
 	import type { ClassValue } from 'svelte/elements';
-	import { shortcut } from './attachment.svelte';
-	import { shortcuts } from './palette.svelte.js';
+	import { shortcut } from './attachment.svelte.js';
 
 	let {
 		keys,
@@ -15,7 +13,8 @@
 		class: className,
 		click = true
 	}: {
-		keys: Hotkey;
+		/** A checked hotkey string (`'Mod+Shift+S'`) or a `RawHotkey` object built at runtime. */
+		keys: RegisterableHotkey;
 		description?: string;
 		element?: HTMLElement;
 		children: Snippet;
@@ -26,10 +25,7 @@
 
 	let container: HTMLDivElement | undefined;
 
-	const shortcut_slug = $derived(normalizeHotkey(keys));
-	const shortcut_enabled = $derived(shortcuts[shortcut_slug]?.enabled !== false);
-
-	function focusChild(_keys?: string[]) {
+	function focusChild() {
 		const targetElement =
 			element ??
 			container?.querySelector<HTMLElement>(
@@ -51,19 +47,13 @@
 <div
 	bind:this={container}
 	tabindex="-1"
-	class={[className, { 'incant-focus-disabled': !shortcut_enabled }]}
+	class={className}
 	{@attach shortcut({
 		keys,
-		description: description,
+		description,
 		action: focusChild,
 		click
 	})}
 >
 	{@render children()}
 </div>
-
-<style>
-	:global(.incant-focus-disabled) {
-		outline: none !important;
-	}
-</style>

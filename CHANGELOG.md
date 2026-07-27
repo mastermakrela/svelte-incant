@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.9.0] - 2026-07-27
+
+- feat: Delegate the hotkey engine to `@tanstack/svelte-hotkeys`, replacing incant's hand-rolled registry, chord matcher and held-key tracker
+- feat: Add `revealModifier` prop to `Palette` (`'Alt'` default) to choose the hold-to-reveal modifier
+- feat: Style the hold-to-reveal outline with `--incant-outline-*` custom properties instead of inline styles, so it no longer overrides an author outline
+- fix: Chord progress now drains and hides on timeout
+- fix: Remove the unbounded module-level attachment cache that let two elements with identical config clobber each other
+- perf: Toggling a shortcut updates the registration in place instead of re-registering, so palette rows no longer reorder
+- breaking: `@tanstack/hotkeys` and `@tanstack/svelte-hotkeys` are now peer dependencies — install both so your app and incant share one registry
+- breaking: Require Svelte `^5.42.0` (the TanStack Svelte adapter uses `createContext`)
+- breaking: `shortcuts` is now `{ current: IncantShortcut[] }` in registration order, covering shortcuts and chords, instead of a keyed record
+- feat: `keys` on `Shortcut`, `Focus` and `shortcut()` is now TanStack's `RegisterableHotkey`, so valid combos autocomplete and a typo like `keys="Comtrol+S"` is a compile error instead of a shortcut that never fires
+- feat: `Chord` accepts `steps={['Mod+K', 'B']}` — a `Hotkey[]` with per-step autocomplete; the `"Mod+K B"` string form still works
+- breaking: Remove `chordRegistry`, `chords` and `get_current_progress`; add `IncantShortcut`, `ShortcutConfig`, `CanonicalModifier`, `RawHotkey`, `RegisterableHotkey`, `HotkeySequence` and `SequenceInput`
+- breaking: Remove `add_shortcut`, `remove_shortcut`, `toggle_shortcut`, `isShortcutEnabled`, `add_chord`, `remove_chord`, `toggle_chord`, `isChordEnabled`, `getIsMac`, `getKeyLabel` and `keyToSymbol` — register through the components or the `shortcut()` attachment
+- breaking: Shortcuts no longer call `preventDefault`/`stopPropagation` by default; opt in per shortcut or app-wide via `preventDefault` on `Palette`
+- breaking: A held key fires its shortcut once instead of auto-repeating; release the keys to fire again
+- fix: Shortcuts and chords without `Ctrl`/`Meta`/`Alt` no longer fire while typing in an input (a capital letter is `Shift+key`), and the ignore happens before `preventDefault` so the keystroke still types
+- breaking: Remove the `HotkeyInput` type; use `RegisterableHotkey` (pass a `RawHotkey` object for hotkeys built at runtime)
+- feat: Add `showRebinding` prop to `Palette` — users can record a replacement combo per shortcut (`Esc` cancels, `Backspace` restores the default); overrides are in-memory, keyed by the declared combo
+- feat: Export `rebind(declared, steps)` so apps can persist and restore user overrides themselves
+- feat: Add app-wide `sequenceTimeout` and `preventDefault` defaults to `Palette`, honoured by components and the `shortcut()` attachment alike
+- feat: `shortcut()` derives the hotkey from the element's text (or its `<label>`) when `keys` is omitted; the modifier prefix is configurable via `deriveModifier` on `Palette`
+- fix: A shortcut that focuses a text field no longer lets its own triggering keystroke get typed into that field
+- docs: Canonicalise every example to checked casing (`Control+S`, not `control+s`)
+- breaking: Drop the undocumented `enabled` input on shortcuts and chords; enable/disable is the palette's toggle only
+
 ## [0.8.0] - 2026-02-13
 
 - feat: Migrate runtime hotkey engine to `@tanstack/hotkeys`
