@@ -237,6 +237,20 @@ outline of your own. Tune it with the same CSS custom properties as everything e
 }
 ```
 
+There is deliberately no radius variable: `outline` follows the element's own `border-radius`, so
+a project with sharp edges gets sharp outlines for free. Which element carries the outline depends
+on the API you use — `Focus` wraps its children in a `div` and outlines that wrapper, so the corner
+shape comes from `Focus`'s own `class`, while the `shortcut()` attachment outlines the element it
+is attached to:
+
+```svelte
+<Focus keys="Control+B" description="Save" class="rounded-none">
+	<Button>Save</Button>
+</Focus>
+
+<button class="rounded-none" {@attach shortcut({ keys: 'Control+S' })}>Save</button>
+```
+
 ## Customization
 
 The package uses CSS custom properties (CSS variables) for styling. You can override these in your global CSS to customize the appearance:

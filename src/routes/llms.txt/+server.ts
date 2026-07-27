@@ -213,7 +213,21 @@ The library uses CSS custom properties for theming:
 --incant-radius-sm: 0.25rem;
 --incant-radius-md: 0.375rem;
 --incant-radius-lg: 0.5rem;
+
+/* Hold-to-reveal outline (the .incant-revealed class) */
+--incant-outline-width: 2px;
+--incant-outline-style: dotted;
+--incant-outline-color: #878787;
+--incant-outline-offset: 2px;
 \`\`\`
+
+### Styling the hold-to-reveal outline
+The outline shown while the reveal modifier is held is applied as a class
+(\`.incant-revealed\`), not an inline style, so it does not override an author's own \`outline\`.
+There is no radius variable: \`outline\` follows the element's own \`border-radius\`, so sharp-edged
+designs get sharp outlines automatically. \`Focus\` wraps its children in a \`div\` and outlines that
+wrapper (set its radius via \`Focus\`'s \`class\`), while the \`shortcut()\` attachment outlines the
+element it is attached to.
 
 ## API Reference
 
