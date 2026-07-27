@@ -4,16 +4,22 @@ export { default as Palette } from './palette.svelte';
 export type { PalettePosition } from './palette.svelte';
 export { default as Shortcut } from './shortcut.svelte';
 
-export { shortcut } from './attachment.svelte.js';
-export { add_chord, isChordEnabled, remove_chord, toggle_chord } from './chord.svelte.js';
+export type {
+	CanonicalModifier,
+	Hotkey,
+	HotkeySequence,
+	RawHotkey,
+	RegisterableHotkey
+} from '@tanstack/svelte-hotkeys';
+export type { SequenceInput, SequenceSpec } from './hotkey-utils.js';
+
+export { shortcut, type ShortcutConfig } from './attachment.svelte.js';
 export {
-	add_shortcut,
 	closePalette,
-	isShortcutEnabled,
 	openPalette,
 	paletteState,
-	remove_shortcut,
-	toggle_shortcut,
-	togglePalette
+	rebind,
+	shortcuts,
+	togglePalette,
+	type IncantShortcut
 } from './palette.svelte.js';
-export { getIsMac, getKeyLabel, keyToSymbol } from './utils';

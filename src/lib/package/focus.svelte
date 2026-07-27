@@ -2,10 +2,10 @@
 	import type { RegisterableHotkey } from '@tanstack/svelte-hotkeys';
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
-	import { shortcut } from './attachment.svelte';
+	import { shortcut } from './attachment.svelte.js';
 
 	let {
-		hotkey,
+		keys,
 		description,
 		element,
 		children,
@@ -13,7 +13,8 @@
 		class: className,
 		click = true
 	}: {
-		hotkey: RegisterableHotkey;
+		/** A checked hotkey string (`'Mod+Shift+S'`) or a `RawHotkey` object built at runtime. */
+		keys: RegisterableHotkey;
 		description?: string;
 		element?: HTMLElement;
 		children: Snippet;
@@ -22,17 +23,15 @@
 		click?: boolean;
 	} = $props();
 
-	let container: HTMLElement;
+	let container: HTMLDivElement | undefined;
 
 	function focusChild() {
 		const targetElement =
-			element ||
-			(() => {
-				const focusable = container.querySelector<HTMLElement>(
-					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-				);
-				return focusable || container;
-			})();
+			element ??
+			container?.querySelector<HTMLElement>(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+			) ??
+			container;
 
 		if (targetElement) {
 			targetElement.focus();
@@ -50,7 +49,7 @@
 	tabindex="-1"
 	class={className}
 	{@attach shortcut({
-		hotkey,
+		keys,
 		description,
 		action: focusChild,
 		click

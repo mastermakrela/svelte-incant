@@ -22,6 +22,22 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
 
+### 5. btca CLI
+
+You can ask questions about the following resources using btca:
+
+```
+btca ask -r <resource> -q "<question>"
+```
+
+Available resources:
+
+- `svelte` - Svelte documentation (https://github.com/sveltejs/svelte.dev)
+- `tailwindcss` - Tailwind CSS documentation (https://github.com/tailwindlabs/tailwindcss.com)
+- `runed` - Runed library (https://github.com/svecosystem/runed)
+- `bits-ui` - Bits UI component library (https://github.com/huntabyte/bits-ui)
+- `tanstack-hotkeys` - TanStack HotKeys (https://github.com/tanstack/hotkeys)
+
 ## Project-Specific Guidelines
 
 ### Changelog Format
@@ -33,3 +49,8 @@ When creating or updating CHANGELOG.md, use the following style:
 - Use a simple flat list - standard sections are unnecessary since prefixes make the type clear
 - Avoid verbose descriptions - keep entries brief and scannable
 - Use present tense ("Add feature" not "Added feature")
+
+## Use svelte correctly
+
+Instead of recreating `bind:this` using `{@attach track_container}`,
+use `bind:this={container}`

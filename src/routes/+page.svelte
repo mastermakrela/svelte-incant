@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
-	import { Chord, Focus, Palette } from '$lib';
+	import { Chord, Focus, Palette, shortcut } from '$lib';
 	import ComboboxExample from '$lib/combobox-example.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
 	import Header from '$lib/components/header.svelte';
@@ -31,7 +32,7 @@
 		`/script>
 
  <Shortcut
-  hotkey="Mod+S"
+  keys="Control+S"
   description="Save document"
   action={() => console.log('Save document')}
  />`;
@@ -42,7 +43,7 @@
  <` +
 		`/script>
 
- <Focus hotkey="Control+E" description="Focus search input">
+ <Focus keys="Control+E" description="Focus search input">
   <input type="text" placeholder="Search..." />
  </Focus>`;
 
@@ -56,7 +57,7 @@
    type="text"
    placeholder="Type something..."
    {@attach shortcut({
-    hotkey: 'Mod+I',
+    keys: 'Meta+I',
     description: 'Focus text input'
    })}
   />`;
@@ -67,19 +68,23 @@
  <` +
 		`/script>
 
+ <!-- Array form: every step is type-checked and autocompletes -->
  <Chord
-  sequence={['Mod+K', 'B']}
+  steps={['Mod+K', 'B']}
   description="Open bookmarks"
   action={() => console.log('Open bookmarks')}
- />`;
+ />
+
+ <!-- The space-separated string form still works, but is not checked -->
+ <Chord steps="Mod+K B" description="Open bookmarks" action={() => {}} />`;
 
 	const linkButtonDemoCode = `<div class="grid grid-cols-2 place-items-center gap-8">
-	<Focus hotkey="Control+L" description="Opens a link" class="rounded">
+	<Focus keys="Control+L" description="Opens a link" class="rounded">
 		<Button href="https://mastermakrela.com" target="_blank" variant="link">
 			Link
 		</Button>
 	</Focus>
-	<Focus hotkey="Control+B" description="Clicks a button" class="rounded">
+	<Focus keys="Control+B" description="Clicks a button" class="rounded">
 		<Button onclick={() => alert('Button clicked!')}>Button</Button>
 	</Focus>
 </div>`;
@@ -91,7 +96,7 @@
  <` +
 		`/script>
 
-  <Focus hotkey="Control+E" description="Focus search input">
+  <Focus keys="Control+E" description="Focus search input">
     <Input type="text" placeholder="Search..." />
   </Focus>`;
 
@@ -119,10 +124,44 @@
   <!-- Hide toggle buttons (default behavior) -->
   <Palette showToggles={false} />`;
 
+	const rebindCode =
+		`<script>
+  import { Palette } from 'svelte-incant';
+ <` +
+		`/script>
+
+  <!-- Add a Rebind column: record a replacement combo for any shortcut -->
+  <Palette showRebinding={true} />`;
+
+	const defaultsCode =
+		`<script>
+  import { Palette } from 'svelte-incant';
+ <` +
+		`/script>
+
+  <!-- App-wide defaults for every shortcut, chord and attachment -->
+  <Palette sequenceTimeout={3000} preventDefault={true} />`;
+
+	const derivedCode =
+		`<script>
+  import { shortcut } from 'svelte-incant';
+ <` +
+		`/script>
+
+  <!-- No keys: the first alphanumeric character of the text wins -->
+  <button {@attach shortcut()}>Duplicate</button>  <!-- binds Control+D -->
+
+  <!-- An input has no text, so its <label> is used instead -->
+  <label for="note">Quick note</label>
+  <input id="note" {@attach shortcut()} />         <!-- binds Control+Q -->`;
+
 	let position = $state<PalettePosition>('bottom-right');
+	let showRebinding = $state(false);
+	let sequenceTimeout = $state(1500);
+	let showDerived = $state(false);
 </script>
 
-<Palette {position} showToggles={true} />
+<Palette {position} showToggles={true} {showRebinding} {sequenceTimeout} />
 
 <svelte:head>
 	<title>Svelte Incant</title>
@@ -175,7 +214,7 @@
 				<p class="">
 					For sequential key combinations (chords), use <code>Chord</code> component. Chords are different
 					from shortcuts - you press one combination (e.g., Cmd+K), then another (e.g., B) to activate
-					them.
+					them. They take priority over shortcuts on conflicts.
 				</p>
 
 				<CodeBlock language="xml" code={chordCode} />
@@ -211,12 +250,12 @@
 					<Card.Content class="grid h-80 place-items-center">
 						<Tabs.Content value="example">
 							<div class="grid grid-cols-2 place-items-center gap-8">
-								<Focus hotkey="Control+L" description="Opens a link" class="rounded">
+								<Focus keys="Control+L" description="Opens a link" class="rounded">
 									<Button href="https://mastermakrela.com" target="_blank" variant="link">
 										Link
 									</Button>
 								</Focus>
-								<Focus hotkey="Control+B" description="Clicks a button" class="rounded">
+								<Focus keys="Control+B" description="Clicks a button" class="rounded">
 									<Button onclick={() => alert('Button clicked!')}>Button</Button>
 								</Focus>
 							</div>
@@ -235,13 +274,13 @@
 			<h3 class="mb-4 text-lg font-medium">Use with inputs</h3>
 			<p class="text-sm text-muted-foreground">
 				Press <kbd class="rounded border bg-muted px-1 py-0.5 text-xs">⌥</kbd> (alt) to see the
-				focus shortcut hint. Or press <Kbds hotkey="Control+E" /> to focus the input below.
+				focus shortcut hint. Or press <Kbds keys="Control+E" /> to focus the input below.
 			</p>
 			<Tabs.Root value="example" class="w-full">
 				<Card.Root>
 					<Card.Content class="grid h-80 place-items-center">
 						<Tabs.Content value="example">
-							<Focus hotkey="Control+E" description="Focus search input" class="rounded">
+							<Focus keys="Control+E" description="Focus search input" class="rounded">
 								<Input type="text" placeholder="Search..." />
 							</Focus>
 						</Tabs.Content>
@@ -261,8 +300,9 @@
 
 			<h3 class="mb-4 text-lg font-medium">Key Chords</h3>
 			<p class="text-sm text-muted-foreground">
-				Press <Kbds hotkey="Mod+K" />, then <Kbd.Root>B</Kbd.Root> to open bookmarks. Press
-				<Kbd.Root>Esc</Kbd.Root> to cancel an in-progress chord.
+				Press <Kbds keys="Mod+K" />, then <Kbd.Root>B</Kbd.Root> to open bookmarks. Press
+				<Kbd.Root>Esc</Kbd.Root> to cancel an in-progress chord. Chords timeout after 1.5 seconds if not
+				completed.
 			</p>
 			<Tabs.Root value="example" class="w-full">
 				<Card.Root>
@@ -270,14 +310,14 @@
 						<Tabs.Content value="example">
 							<div class="space-y-4">
 								<p class="text-center">
-									Try pressing: <Kbds sequence={['Mod+K', 'B']} />
+									Try pressing: <Kbds keys="Mod+K" /> → <Kbd.Root>B</Kbd.Root>
 								</p>
 								<p class="text-center text-sm text-muted-foreground">Or click the button below:</p>
 								<div class="flex justify-center">
 									<Button onclick={() => alert('Chord triggered!')}>Trigger Chord Manually</Button>
 								</div>
 								<Chord
-									sequence={['Mod+K', 'B']}
+									steps={['Mod+K', 'B']}
 									description="Open bookmarks"
 									action={() => alert('Chord triggered!')}
 								/>
@@ -285,6 +325,92 @@
 						</Tabs.Content>
 						<Tabs.Content value="code">
 							<CodeBlock language="xml" code={chordCode} />
+						</Tabs.Content>
+					</Card.Content>
+				</Card.Root>
+				<Tabs.List>
+					<Tabs.Trigger value="example">Example</Tabs.Trigger>
+					<Tabs.Trigger value="code">Code</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+			<h3 class="mb-4 text-lg font-medium">Rebind shortcuts</h3>
+			<p class="text-sm text-muted-foreground">
+				With <code>showRebinding</code>, every palette row grows a
+				<code>Rebind</code>
+				button. Click it, press the combination you want, and the shortcut re-registers on the spot —
+				<Kbd.Root>Esc</Kbd.Root>
+				cancels, <Kbd.Root>⌫</Kbd.Root> restores the declared combo. For chords, press each step and
+				<Kbd.Root>Enter</Kbd.Root> to save. Overrides live in memory only, so a reload brings the declared
+				combos back.
+			</p>
+			<Tabs.Root value="example" class="w-full">
+				<Card.Root>
+					<Card.Content class="grid h-80 place-items-center">
+						<Tabs.Content value="example">
+							<div class="space-y-4 text-center">
+								<Button onclick={() => (showRebinding = !showRebinding)}>
+									{showRebinding ? 'Hide' : 'Show'} the Rebind column
+								</Button>
+								<p class="text-sm text-muted-foreground">
+									Then open the palette and rebind, say, <Kbds keys="Control+B" /> to something else.
+								</p>
+							</div>
+						</Tabs.Content>
+						<Tabs.Content value="code">
+							<CodeBlock language="xml" code={rebindCode} />
+						</Tabs.Content>
+					</Card.Content>
+				</Card.Root>
+				<Tabs.List>
+					<Tabs.Trigger value="example">Example</Tabs.Trigger>
+					<Tabs.Trigger value="code">Code</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+
+			<h3 class="mb-4 text-lg font-medium">Keys derived from text</h3>
+			<p class="text-sm text-muted-foreground">
+				Call <code>shortcut()</code> with no <code>keys</code> and the first alphanumeric character
+				of the element's text becomes the shortcut, behind a modifier — <code>Control</code> by
+				default, set app-wide with <code>deriveModifier</code>. An <code>&lt;input&gt;</code> has no
+				text of its own, so its <code>&lt;label&gt;</code> is used instead.
+			</p>
+			<Tabs.Root value="example" class="w-full">
+				<Card.Root>
+					<Card.Content class="grid h-80 place-items-center">
+						<Tabs.Content value="example">
+							<div class="space-y-4 text-center">
+								<Button variant="outline" onclick={() => (showDerived = !showDerived)}>
+									{showDerived ? 'Unmount' : 'Mount'} the derived shortcuts
+								</Button>
+								{#if showDerived}
+									<div class="flex items-center justify-center gap-4">
+										<!-- "Duplicate" derives Control+D — "Bookmark" would collide with the
+										     Focus demo's Control+B above, and preferences are keyed per combo. -->
+										<Button
+											onclick={() => alert('Duplicated!')}
+											{@attach shortcut({ description: 'Duplicate (derived from the label)' })}
+										>
+											Duplicate
+										</Button>
+										<div class="space-y-1 text-left">
+											<label for="derived-note" class="text-sm">Quick note</label>
+											<Input
+												id="derived-note"
+												type="text"
+												placeholder="…"
+												{@attach shortcut({ description: 'Quick note (derived from the label)' })}
+											/>
+										</div>
+									</div>
+									<p class="text-sm text-muted-foreground">
+										<Kbds keys="Control+D" /> clicks the button, <Kbds keys="Control+Q" /> focuses the
+										input.
+									</p>
+								{/if}
+							</div>
+						</Tabs.Content>
+						<Tabs.Content value="code">
+							<CodeBlock language="xml" code={derivedCode} />
 						</Tabs.Content>
 					</Card.Content>
 				</Card.Root>
@@ -360,6 +486,34 @@
 					column is hidden and all shortcuts remain active.
 				</p>
 			</div>
+
+			<div class="mt-8 space-y-4">
+				<p class="">
+					<code>Palette</code> also carries the app-wide defaults. They apply to every shortcut,
+					chord and <code>shortcut()</code> attachment alike — a per-shortcut
+					<code>preventDefault</code> still wins.
+				</p>
+
+				<CodeBlock language="xml" code={defaultsCode} />
+
+				<p class="text-sm text-muted-foreground">
+					Change the chord window and then try <Kbds keys="Mod+K" /> →
+					<Kbd.Root>B</Kbd.Root> again:
+				</p>
+				<ul class="flex flex-wrap gap-2 text-xs">
+					{#each [500, 1500, 3000] as ms (ms)}
+						<li>
+							<Button
+								variant={sequenceTimeout === ms ? 'secondary' : 'ghost'}
+								size="sm"
+								onclick={() => (sequenceTimeout = ms)}
+							>
+								<code>sequenceTimeout={ms}</code>
+							</Button>
+						</li>
+					{/each}
+				</ul>
+			</div>
 		</section>
 
 		<!-- Footer -->
@@ -370,7 +524,8 @@
 				>
 			</p>
 			<p>
-				<a href="/llms.txt" target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly documentation
+				<a href={resolve('/llms.txt')} target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly
+				documentation
 			</p>
 		</footer>
 	</main>

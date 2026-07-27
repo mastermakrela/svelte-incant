@@ -10,49 +10,43 @@
 </script>
 
 <script lang="ts">
-	import { Keyboard, ToggleLeft, ToggleRight } from '@lucide/svelte';
 	import {
-		DEFAULT_SEQUENCE_TIMEOUT,
-		formatHotkeySequence,
-		getHeldKeys,
-		getHotkeyRegistrations,
-		type RawHotkey,
-		type RegisterableHotkey
+		createHotkeyRecorder,
+		createHotkeySequenceRecorder,
+		type CanonicalModifier,
+		type HotkeySequence
 	} from '@tanstack/svelte-hotkeys';
-	import { toggle_chord } from './chord.svelte.js';
+	import { Keyboard, Pencil, ToggleLeft, ToggleRight } from '@lucide/svelte';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
-	import { paletteState, togglePalette, toggle_shortcut } from './palette.svelte.js';
+	import { toSequenceStepTokens } from './hotkey-utils.js';
+	import {
+		effectiveSequenceMatchedSteps,
+		heldKeyNames,
+		incantConfig,
+		incantSequences,
+		needsSequenceProgressClock,
+		paletteState,
+		rebind,
+		shortcuts,
+		togglePalette,
+		SEQUENCE_TIMEOUT_MS,
+		type IncantShortcut
+	} from './palette.svelte.js';
 	import Shortcut from './shortcut.svelte';
-
-	const PALETTE_HOTKEY: RawHotkey = { key: '?', shift: true };
-
-	type PaletteItem =
-		| {
-				type: 'shortcut';
-				key: string;
-				hotkey: RegisterableHotkey;
-				description?: string;
-				enabled: boolean;
-				toggle: () => void;
-		  }
-		| {
-				type: 'chord';
-				key: string;
-				sequence: RegisterableHotkey[];
-				description?: string;
-				enabled: boolean;
-				toggle: () => void;
-		  };
 
 	let {
 		position = 'bottom-right',
 		showToggles = false,
-		formatShortcut,
+		showRebinding = false,
+		revealModifier = 'Alt',
+		deriveModifier = 'Control',
+		sequenceTimeout = SEQUENCE_TIMEOUT_MS,
+		preventDefault = false,
 		texts = {
 			shortcutDescription: 'Open shortcut palette',
 			tooltipContent: 'Press ?',
@@ -62,22 +56,36 @@
 			tableHeaders: {
 				keys: 'Keys',
 				description: 'Description',
-				enabled: 'Enabled'
+				enabled: 'Enabled',
+				rebind: 'Rebind'
 			},
 			toggleLabels: {
 				enable: 'Enable shortcut',
 				disable: 'Disable shortcut'
+			},
+			rebindLabels: {
+				start: 'Record a new key combination',
+				recording: 'Press keys… Esc cancels, ⌫ restores the default',
+				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
 			},
 			emptyState: 'No shortcuts containing'
 		}
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
-		formatShortcut?: (
-			hotkey: RegisterableHotkey | undefined,
-			sequence: RegisterableHotkey[] | undefined,
-			isMac: boolean
-		) => string;
+		/** Let the user record a replacement combo for any listed shortcut. */
+		showRebinding?: boolean;
+		/** Modifier the user holds to reveal the outline + badge on every shortcut element. */
+		revealModifier?: CanonicalModifier;
+		/**
+		 * Modifier prefixed to keys derived from element text by `shortcut()` with no `keys`.
+		 * `null` derives bare keys, which fire on ordinary typing — rarely what you want.
+		 */
+		deriveModifier?: CanonicalModifier | null;
+		/** App-wide chord step timeout, in ms. */
+		sequenceTimeout?: number;
+		/** App-wide default for `preventDefault` on every shortcut and chord. */
+		preventDefault?: boolean;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -87,10 +95,16 @@
 				keys?: string;
 				description?: string;
 				enabled?: string;
+				rebind?: string;
 			};
 			toggleLabels?: {
 				enable?: string;
 				disable?: string;
+			};
+			rebindLabels?: {
+				start?: string;
+				recording?: string;
+				recordingChord?: string;
 			};
 			emptyState?: string;
 		};
@@ -98,87 +112,95 @@
 
 	let tooltip_open = $state(false);
 
-	const registrations = getHotkeyRegistrations();
-	const heldKeys = getHeldKeys();
+	// `deriveModifier` is read once, when an attachment derives its key at mount. Effects run
+	// after that, so it has to be written synchronously here or an attachment mounting before
+	// this palette would derive against the stale default. Capturing only the initial value is
+	// the point here; the effect below keeps it in sync afterwards.
+	// svelte-ignore state_referenced_locally
+	incantConfig.deriveModifier = deriveModifier;
 
-	const allItems: PaletteItem[] = $derived.by(() => {
-		const items: PaletteItem[] = [];
-
-		for (const reg of registrations.hotkeys) {
-			items.push({
-				type: 'shortcut',
-				key: reg.hotkey,
-				hotkey: reg.hotkey,
-				description: reg.options.meta?.description,
-				enabled: reg.options.enabled !== false,
-				toggle: () => toggle_shortcut(reg.hotkey)
-			});
-		}
-
-		for (const reg of registrations.sequences) {
-			items.push({
-				type: 'chord',
-				key: formatHotkeySequence(reg.sequence),
-				sequence: reg.sequence,
-				description: reg.options.meta?.description,
-				enabled: reg.options.enabled !== false,
-				toggle: () => toggle_chord(reg.sequence)
-			});
-		}
-
-		return items;
+	// The one place the app-wide defaults are written. Everything else — components and
+	// the `shortcut()` attachment alike — reads them back out of `incantConfig`.
+	$effect(() => {
+		incantConfig.revealModifier = revealModifier;
+		incantConfig.deriveModifier = deriveModifier;
+		incantConfig.sequenceTimeout = sequenceTimeout;
+		incantConfig.preventDefault = preventDefault;
 	});
 
-	let expiryTick = $state(0);
+	// Rebinding. Both recorders call `onDestroy` internally, so they can only be created
+	// at component init — hence one pair for the whole palette, keyed by the declared
+	// combo of whichever row is currently recording.
+	let recording = $state<string | null>(null);
 
-	const activeChord = $derived.by(() => {
-		void expiryTick;
-		const now = Date.now();
-		for (const reg of registrations.sequences) {
-			if (reg.matchedStepCount === 0) continue;
-			if (reg.matchedStepCount >= reg.sequence.length) continue;
-			const timeout = reg.options.timeout ?? DEFAULT_SEQUENCE_TIMEOUT;
-			const expiresAt = reg.partialMatchLastKeyTime + timeout;
-			if (now >= expiresAt) continue;
-			return {
-				sequence: reg.sequence,
-				completedSteps: reg.sequence.slice(0, reg.matchedStepCount),
-				hasMore: reg.matchedStepCount < reg.sequence.length,
-				expiresAt,
-				timeout
-			};
-		}
-		return null;
+	function finish(steps: HotkeySequence) {
+		if (recording) rebind(recording, steps);
+		recording = null;
+	}
+
+	const recorder = createHotkeyRecorder({
+		ignoreInputs: false,
+		onRecord: (hotkey) => finish(hotkey ? [hotkey] : []),
+		onCancel: () => (recording = null)
 	});
+
+	const sequenceRecorder = createHotkeySequenceRecorder({
+		ignoreInputs: false,
+		onRecord: (steps) => finish(steps),
+		onCancel: () => (recording = null)
+	});
+
+	function startRecording(item: IncantShortcut) {
+		recording = item.declared;
+		if (item.isChord) sequenceRecorder.startRecording();
+		else recorder.startRecording();
+	}
+
+	// Held keys are canonical-cased (`'Control'`), hotkey tokens are lower-cased.
+	const all_keys = $derived(heldKeyNames().map((key) => key.toLowerCase()));
+
+	const filtered_shortcuts = $derived.by(() => {
+		const pressed = all_keys.filter((key) => !['?', '/', 'space', 'tab'].includes(key));
+		if (pressed.length === 0) return shortcuts.current;
+
+		return shortcuts.current.filter((item) =>
+			toSequenceStepTokens(item.steps)
+				.flat()
+				.some((token) => pressed.includes(token))
+		);
+	});
+
+	// Chord progress. `matchedStepCount` only changes when the manager sees a key, and
+	// nothing fires when a partial match times out — so drive the countdown from one
+	// shared rAF, started only while at least one chord is actually mid-match.
+	let now = $state(Date.now());
 
 	$effect(() => {
-		const chord = activeChord;
-		if (!chord) return;
-		const remaining = chord.expiresAt - Date.now();
-		if (remaining <= 0) return;
-		const id = setTimeout(() => {
-			expiryTick++;
-		}, remaining + 16);
-		return () => clearTimeout(id);
-	});
+		const sequences = incantSequences();
+		if (!needsSequenceProgressClock(sequences, Date.now())) return;
 
-	const filtered_items = $derived.by(() => {
-		const pressed = heldKeys.keys.filter((key) => !['?', '/', ' ', 'Tab', 'Escape'].includes(key));
-		if (pressed.length === 0) return allItems;
-
-		const needles = pressed.map((k) => k.toLowerCase());
-
-		return allItems.filter((item) => {
-			const haystack =
-				item.type === 'shortcut'
-					? String(item.hotkey).toLowerCase()
-					: item.sequence
-							.map((s) => String(s))
-							.join(' ')
-							.toLowerCase();
-			return needles.some((n) => haystack.includes(n));
+		let frame = requestAnimationFrame(function tick() {
+			now = Date.now();
+			if (needsSequenceProgressClock(sequences, now)) frame = requestAnimationFrame(tick);
 		});
+
+		return () => cancelAnimationFrame(frame);
 	});
+
+	const chordDisplays = $derived.by(() =>
+		incantSequences()
+			.map((reg) => ({ reg, matched: effectiveSequenceMatchedSteps(reg, now) }))
+			.filter(({ matched }) => matched > 0)
+			.map(({ reg, matched }) => ({
+				id: reg.id,
+				completedSteps: reg.sequence.slice(0, matched),
+				hasMore: matched < reg.sequence.length,
+				progress: Math.max(
+					0,
+					1 - (now - reg.partialMatchLastKeyTime) / (reg.options.timeout ?? SEQUENCE_TIMEOUT_MS)
+				)
+			}))
+	);
 
 	const POSITION_STYLES: Record<PalettePosition, string> = {
 		'top-left': 'left: 1rem; top: 1rem;',
@@ -189,10 +211,17 @@
 		'bottom-right': 'right: 1rem; bottom: 1rem;',
 		none: 'display: none;'
 	};
+
 	const positionStyles = $derived(POSITION_STYLES[position]);
 </script>
 
-<Shortcut hotkey={PALETTE_HOTKEY} description={texts.shortcutDescription} action={togglePalette} />
+<!-- `?` as a RawHotkey: on every layout, whatever produces `?` (Shift+/ on US,
+     Shift+ß on QWERTZ) matches — the string `'?'` would fail TanStack's shiftKey check. -->
+<Shortcut
+	keys={{ key: '?', shift: true }}
+	description={texts.shortcutDescription}
+	action={togglePalette}
+/>
 
 <Tooltip.Provider delayDuration={0}>
 	<Tooltip.Root bind:open={tooltip_open}>
@@ -228,17 +257,18 @@
 									>{texts.tableHeaders?.enabled ?? 'Enabled'}</Table.Head
 								>
 							{/if}
+							{#if showRebinding}
+								<Table.Head class="incant-palette-cell-actions"
+									>{texts.tableHeaders?.rebind ?? 'Rebind'}</Table.Head
+								>
+							{/if}
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
-						{#each filtered_items as item (item.key)}
+						{#each filtered_shortcuts as item (item.id)}
 							<Table.Row>
 								<Table.Cell class="incant-palette-cell-keys">
-									{#if item.type === 'shortcut'}
-										<Kbds hotkey={item.hotkey} {formatShortcut} />
-									{:else}
-										<Kbds sequence={item.sequence} {formatShortcut} />
-									{/if}
+									<Kbds keys={item.steps} isChord={item.isChord} />
 								</Table.Cell>
 								<Table.Cell>{item.description}</Table.Cell>
 								{#if showToggles}
@@ -260,12 +290,46 @@
 										</button>
 									</Table.Cell>
 								{/if}
+								{#if showRebinding}
+									<Table.Cell class="incant-palette-cell-actions">
+										{#if recording === item.declared}
+											<span class="incant-palette-recording">
+												{#if item.isChord}
+													<Kbds keys={sequenceRecorder.steps} isChord={true} />
+													{texts.rebindLabels?.recordingChord ??
+														'Press each step… Enter saves, ⌫ undoes, Esc cancels'}
+												{:else}
+													{texts.rebindLabels?.recording ??
+														'Press keys… Esc cancels, ⌫ restores the default'}
+												{/if}
+											</span>
+										{:else}
+											<button
+												type="button"
+												class={[
+													'incant-palette-toggle',
+													{ 'incant-palette-rebound': item.rebound }
+												]}
+												onclick={() => startRecording(item)}
+												aria-label={texts.rebindLabels?.start ?? 'Record a new key combination'}
+												tabindex="0"
+											>
+												<Pencil class="incant-palette-toggle-icon" />
+											</button>
+										{/if}
+									</Table.Cell>
+								{/if}
 							</Table.Row>
 						{:else}
 							<Table.Row>
-								<Table.Cell colspan={showToggles ? 3 : 2} class="incant-palette-empty-state">
+								<Table.Cell
+									colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
+									class="incant-palette-empty-state"
+								>
 									{texts.emptyState}
-									{heldKeys.keys.join(' + ')}.
+									<Kbds keys={all_keys} />
+
+									.
 								</Table.Cell>
 							</Table.Row>
 						{/each}
@@ -276,21 +340,26 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-{#if activeChord}
-	<div class="incant-chord-display">
-		<Kbds sequence={activeChord.completedSteps} {formatShortcut} />
-		{#if activeChord.hasMore}
-			<span class="incant-chord-display-arrow">→</span>
-			<div class="incant-chord-display-next">
-				<div class="incant-chord-display-progress">
-					<CircularProgress expiresAt={activeChord.expiresAt} duration={activeChord.timeout} />
-				</div>
+{#if chordDisplays.length > 0}
+	<div class="incant-chord-displays">
+		{#each chordDisplays as chord (chord.id)}
+			<div class="incant-chord-display">
+				<Kbds keys={chord.completedSteps} isChord={true} />
+				{#if chord.hasMore}
+					<span class="incant-chord-display-arrow">→</span>
+					<div class="incant-chord-display-next">
+						<div class="incant-chord-display-progress">
+							<CircularProgress progress={chord.progress} />
+						</div>
+					</div>
+				{/if}
 			</div>
-		{/if}
+		{/each}
 	</div>
 {/if}
 
 <style>
+	/* CSS Variables Default Values */
 	:root {
 		--incant-colors-primary: oklch(0.205 0 0);
 		--incant-colors-primary-foreground: oklch(0.985 0 0);
@@ -303,6 +372,10 @@
 		--incant-colors-overlay: hsla(0 0% 0% / 0.8);
 		--incant-kbd-bg: #f3f4f6;
 		--incant-kbd-color: #6b7280;
+		--incant-outline-width: 2px;
+		--incant-outline-style: dotted;
+		--incant-outline-color: #878787;
+		--incant-outline-offset: 2px;
 		--incant-spacing-1: 0.25rem;
 		--incant-spacing-2: 0.5rem;
 		--incant-spacing-3: 0.75rem;
@@ -322,6 +395,7 @@
 		--incant-z-index-overlay: 50;
 	}
 
+	/* Palette Trigger Button */
 	:global(.incant-palette-trigger) {
 		display: inline-flex;
 		align-items: center;
@@ -365,6 +439,7 @@
 		height: 1rem;
 	}
 
+	/* Palette Description */
 	:global(.incant-palette-description) {
 		margin: 2rem 0;
 	}
@@ -375,6 +450,7 @@
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
+	/* Palette Table Cells */
 	:global(.incant-palette-cell-keys) {
 		font-weight: 500;
 	}
@@ -383,6 +459,7 @@
 		text-align: right;
 	}
 
+	/* Toggle Button */
 	:global(.incant-palette-toggle) {
 		display: inline-flex;
 		align-items: center;
@@ -411,18 +488,45 @@
 	}
 
 	:global(.incant-palette-toggle-icon.enabled) {
-		color: #10b981;
+		color: #10b981; /* green-500 */
 	}
 
 	:global(.incant-palette-toggle-icon.disabled) {
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
 
+	/* Rebinding */
+	:global(.incant-palette-rebound) {
+		color: #10b981; /* green-500 — this row is no longer on its declared combo */
+	}
+
+	:global(.incant-palette-recording) {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--incant-spacing-2, 0.5rem);
+		font-size: var(--incant-font-size-xs, 0.75rem);
+		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
+		white-space: nowrap;
+	}
+
+	/* Empty State */
 	:global(.incant-palette-empty-state) {
 		text-align: center;
 		padding: 1rem 0;
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
+	}
+
+	/* Chord Display — one panel per chord currently mid-match */
+	:global(.incant-chord-displays) {
+		display: flex;
+		flex-direction: column-reverse;
+		align-items: flex-start;
+		gap: 0.5rem;
+		position: fixed;
+		left: 1rem;
+		bottom: 1rem;
+		z-index: var(--incant-z-index-chord-display, 1000);
 	}
 
 	:global(.incant-chord-display) {
@@ -437,10 +541,6 @@
 		font-weight: 500;
 		white-space: nowrap;
 		box-shadow: var(--incant-shadow-xs, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
-		position: fixed;
-		left: 1rem;
-		bottom: 1rem;
-		z-index: var(--incant-z-index-chord-display, 1000);
 	}
 
 	:global(.incant-chord-display-arrow) {

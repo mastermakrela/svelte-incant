@@ -1,25 +1,6 @@
 <script lang="ts">
-	let { expiresAt, duration }: { expiresAt: number; duration: number } = $props();
-
-	let progress = $state(1);
-	let frame: number;
-
-	function update() {
-		const now = Date.now();
-		const remaining = Math.max(0, expiresAt - now);
-		progress = duration > 0 ? remaining / duration : 0;
-
-		if (remaining > 0) {
-			frame = requestAnimationFrame(update);
-		} else {
-			progress = 0;
-		}
-	}
-
-	$effect(() => {
-		update();
-		return () => cancelAnimationFrame(frame);
-	});
+	/** Remaining fraction of the chord timeout, 1 → full ring, 0 → empty. */
+	let { progress }: { progress: number } = $props();
 </script>
 
 <svg class="incant-circular-progress" viewBox="0 0 24 24">

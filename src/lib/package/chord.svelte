@@ -1,27 +1,31 @@
 <script lang="ts">
-	import type { HotkeySequence } from '@tanstack/svelte-hotkeys';
-	import { watch } from 'runed';
-	import { add_chord, remove_chord } from './chord.svelte.js';
+	import { createHotkeySequence } from '@tanstack/svelte-hotkeys';
+	import { toSequence, type SequenceInput } from './hotkey-utils.js';
+	import { effectiveSequence, sequenceOptions } from './palette.svelte.js';
 
 	let {
-		sequence,
+		steps,
 		description,
-		action
+		action,
+		preventDefault
 	}: {
-		sequence: HotkeySequence;
+		/**
+		 * Preferred: one checked `Hotkey` per step, e.g. `{['Mod+K', 'B']}`.
+		 * The space-separated string form (`"Mod+K B"`) is still accepted but unchecked.
+		 */
+		steps: SequenceInput;
 		description?: string;
 		action: () => void;
+		/** Defaults to the app-wide `preventDefault` set on `<Palette />`. */
+		preventDefault?: boolean;
 	} = $props();
 
-	watch([() => sequence, () => description, () => action], () => {
-		add_chord({
-			sequence,
-			description,
-			action
-		});
+	const declared = $derived(toSequence(steps));
+	const sequence = $derived(effectiveSequence(declared));
 
-		return () => {
-			remove_chord(sequence);
-		};
-	});
+	createHotkeySequence(
+		() => sequence,
+		() => action(),
+		() => sequenceOptions(declared, description, preventDefault, sequence)
+	);
 </script>
