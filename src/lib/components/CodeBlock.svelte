@@ -2,7 +2,6 @@
 	import hljs from 'highlight.js/lib/core';
 	import javascript from 'highlight.js/lib/languages/javascript';
 	import xml from 'highlight.js/lib/languages/xml';
-	import 'highlight.js/styles/github.css';
 	import copy from 'copy-to-clipboard';
 	import type { HTMLAttributes } from 'svelte/elements';
 
@@ -130,19 +129,104 @@
 
 <style>
 	:root {
-		--gray0: #fff;
-		--gray1: hsl(0, 0%, 99%);
-		--gray2: hsl(0, 0%, 97.3%);
-		--gray3: hsl(0, 0%, 95.1%);
-		--gray4: hsl(0, 0%, 93%);
-		--gray5: hsl(0, 0%, 90.9%);
-		--gray6: hsl(0, 0%, 88.7%);
-		--gray7: hsl(0, 0%, 85.8%);
-		--gray8: hsl(0, 0%, 78%);
-		--gray9: hsl(0, 0%, 56.1%);
-		--gray10: hsl(0, 0%, 52.3%);
-		--gray11: hsl(0, 0%, 43.5%);
-		--gray12: hsl(0, 0%, 9%);
+		--gray0: light-dark(#fff, oklch(0.205 0 0));
+		--gray1: light-dark(hsl(0, 0%, 99%), oklch(0.185 0 0));
+		--gray2: light-dark(hsl(0, 0%, 97.3%), oklch(0.165 0 0));
+		--gray3: light-dark(hsl(0, 0%, 95.1%), oklch(1 0 0 / 10%));
+		--gray4: light-dark(hsl(0, 0%, 93%), oklch(1 0 0 / 15%));
+		--gray12: light-dark(hsl(0, 0%, 9%), oklch(0.985 0 0));
+	}
+
+	/*
+	 * GitHub syntax theme, both modes in one pass. highlight.js ships `github.css`
+	 * and `github-dark.css` as separate files that each hardcode one mode, so
+	 * importing either would need the other overridden token by token. The selector
+	 * groups are identical between them, so pairing the colours in `light-dark()`
+	 * states each group once. `:global` is required: the highlighted markup is
+	 * assigned as innerHTML and never passes through the Svelte compiler.
+	 */
+	:global(.hljs) {
+		color: light-dark(#24292e, #c9d1d9);
+	}
+
+	:global(
+		.hljs-doctag,
+		.hljs-keyword,
+		.hljs-meta .hljs-keyword,
+		.hljs-template-tag,
+		.hljs-template-variable,
+		.hljs-type,
+		.hljs-variable.language_
+	) {
+		color: light-dark(#d73a49, #ff7b72);
+	}
+
+	:global(.hljs-title, .hljs-title.class_, .hljs-title.class_.inherited__, .hljs-title.function_) {
+		color: light-dark(#6f42c1, #d2a8ff);
+	}
+
+	:global(
+		.hljs-attr,
+		.hljs-attribute,
+		.hljs-literal,
+		.hljs-meta,
+		.hljs-number,
+		.hljs-operator,
+		.hljs-variable,
+		.hljs-selector-attr,
+		.hljs-selector-class,
+		.hljs-selector-id
+	) {
+		color: light-dark(#005cc5, #79c0ff);
+	}
+
+	:global(.hljs-regexp, .hljs-string, .hljs-meta .hljs-string) {
+		color: light-dark(#032f62, #a5d6ff);
+	}
+
+	:global(.hljs-built_in, .hljs-symbol) {
+		color: light-dark(#e36209, #ffa657);
+	}
+
+	:global(.hljs-comment, .hljs-code, .hljs-formula) {
+		color: light-dark(#6a737d, #8b949e);
+	}
+
+	:global(.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo) {
+		color: light-dark(#22863a, #7ee787);
+	}
+
+	:global(.hljs-subst) {
+		color: light-dark(#24292e, #c9d1d9);
+	}
+
+	:global(.hljs-section) {
+		color: light-dark(#005cc5, #1f6feb);
+		font-weight: bold;
+	}
+
+	:global(.hljs-bullet) {
+		color: light-dark(#735c0f, #f2cc60);
+	}
+
+	:global(.hljs-emphasis) {
+		color: light-dark(#24292e, #c9d1d9);
+		font-style: italic;
+	}
+
+	:global(.hljs-strong) {
+		color: light-dark(#24292e, #c9d1d9);
+		font-weight: bold;
+	}
+
+	:global(.hljs-addition) {
+		color: light-dark(#22863a, #aff5b4);
+		background-color: light-dark(#f0fff4, #033a16);
+	}
+
+	:global(.hljs-deletion) {
+		color: light-dark(#b31d28, #ffdcd7);
+		background-color: light-dark(#ffeef0, #67060c);
 	}
 
 	.root {
