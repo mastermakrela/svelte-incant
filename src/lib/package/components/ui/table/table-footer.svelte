@@ -20,13 +20,13 @@
 </tfoot>
 
 <style>
-	:global([data-slot='table-footer']) {
+	:global(.incant-table-footer) {
 		border-top: 1px solid var(--incant-colors-border, hsl(240 5.9% 90%));
 		background-color: var(--incant-colors-muted, hsl(240 4.8% 95.9%));
 		font-weight: 500;
 	}
 
-	:global([data-slot='table-footer'] tr:last-child) {
+	:global(.incant-table-footer tr:last-child) {
 		border-bottom: none;
 	}
 </style>

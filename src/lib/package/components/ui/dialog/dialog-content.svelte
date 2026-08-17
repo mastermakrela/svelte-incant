@@ -40,7 +40,7 @@
 </DialogPortal>
 
 <style>
-	:global([data-slot='dialog-content']) {
+	:global(.incant-dialog-content) {
 		position: fixed;
 		left: 50%;
 		top: 50%;
@@ -58,7 +58,7 @@
 		animation: dialog-content-in 0.2s ease-out;
 	}
 
-	:global([data-slot='dialog-content'][data-state='closed']) {
+	:global(.incant-dialog-content[data-state='closed']) {
 		animation: dialog-content-out 0.2s ease-out;
 	}
 
@@ -97,7 +97,7 @@
 	}
 
 	@media (min-width: 640px) {
-		:global([data-slot='dialog-content']) {
+		:global(.incant-dialog-content) {
 			max-width: fit-content;
 		}
 	}

@@ -17,13 +17,13 @@
 </div>
 
 <style>
-	:global([data-slot='table-container']) {
+	:global(.incant-table-container) {
 		position: relative;
 		width: 100%;
 		overflow-x: auto;
 	}
 
-	:global([data-slot='table']) {
+	:global(.incant-table) {
 		width: 100%;
 		caption-side: bottom;
 		font-size: var(--incant-font-size-sm, 0.875rem);

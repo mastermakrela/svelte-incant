@@ -15,7 +15,7 @@
 </th>
 
 <style>
-	:global([data-slot='table-head']) {
+	:global(.incant-table-head) {
 		height: 2.5rem;
 		background-clip: padding-box;
 		padding: 0 var(--incant-spacing-2, 0.5rem);
@@ -26,7 +26,7 @@
 		color: var(--incant-colors-foreground, hsl(240 10% 3.9%));
 	}
 
-	:global([data-slot='table-head']:has([role='checkbox'])) {
+	:global(.incant-table-head:has([role='checkbox'])) {
 		padding-right: 0;
 	}
 </style>

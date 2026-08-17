@@ -20,7 +20,7 @@
 </thead>
 
 <style>
-	:global([data-slot='table-header'] tr) {
+	:global(.incant-table-header tr) {
 		border-bottom: 1px solid var(--incant-colors-border, hsl(240 5.9% 90%));
 	}
 </style>

@@ -38,7 +38,7 @@
 </TooltipPortal>
 
 <style>
-	:global([data-slot='tooltip-content']) {
+	:global(.incant-tooltip-content) {
 		z-index: 50;
 		width: fit-content;
 		padding: 0.375rem 0.75rem;
@@ -50,19 +50,19 @@
 		text-wrap: balance;
 	}
 
-	:global([data-slot='tooltip-content'][data-state='closed']) {
+	:global(.incant-tooltip-content[data-state='closed']) {
 		animation: tooltip-out 0.2s ease-out;
 	}
 
-	:global([data-slot='tooltip-content'][data-side='top']) {
+	:global(.incant-tooltip-content[data-side='top']) {
 		transform-origin: center bottom;
 	}
 
-	:global([data-slot='tooltip-content'][data-side='bottom']) {
+	:global(.incant-tooltip-content[data-side='bottom']) {
 		transform-origin: center top;
 	}
 
-	:global([data-slot='tooltip-content'][data-side='left']) {
+	:global(.incant-tooltip-content[data-side='left']) {
 		transform-origin: right center;
 	}
 

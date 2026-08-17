@@ -16,7 +16,7 @@
 />
 
 <style>
-	:global([data-slot='dialog-overlay']) {
+	:global(.incant-dialog-overlay) {
 		position: fixed;
 		inset: 0;
 		z-index: 50;
@@ -24,7 +24,7 @@
 		animation: dialog-overlay-in 0.2s ease-out;
 	}
 
-	:global([data-slot='dialog-overlay'][data-state='closed']) {
+	:global(.incant-dialog-overlay[data-state='closed']) {
 		animation: dialog-overlay-out 0.2s ease-out;
 	}
 

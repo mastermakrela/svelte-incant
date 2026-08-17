@@ -20,7 +20,7 @@
 </tbody>
 
 <style>
-	:global([data-slot='table-body'] tr:last-child) {
+	:global(.incant-table-body tr:last-child) {
 		border-bottom: none;
 	}
 </style>

@@ -16,7 +16,7 @@
 />
 
 <style>
-	:global([data-slot='dialog-description']) {
+	:global(.incant-dialog-description) {
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}

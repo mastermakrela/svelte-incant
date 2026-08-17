@@ -20,7 +20,7 @@
 </caption>
 
 <style>
-	:global([data-slot='table-caption']) {
+	:global(.incant-table-caption) {
 		margin-top: var(--incant-spacing-4, 1rem);
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));

@@ -20,7 +20,7 @@
 </div>
 
 <style>
-	:global([data-slot='dialog-header']) {
+	:global(.incant-dialog-header) {
 		display: flex;
 		flex-direction: column;
 		gap: var(--incant-spacing-2, 0.5rem);
@@ -28,7 +28,7 @@
 	}
 
 	@media (min-width: 640px) {
-		:global([data-slot='dialog-header']) {
+		:global(.incant-dialog-header) {
 			text-align: start;
 		}
 	}

@@ -44,12 +44,12 @@
 		color: var(--incant-kbd-color, #9ca3af);
 	}
 
-	:global([data-slot='tooltip-content']) .incant-kbd {
+	:global(.incant-tooltip-content) .incant-kbd {
 		background-color: rgba(255, 255, 255, 0.2);
 		color: inherit;
 	}
 
-	:global(.dark [data-slot='tooltip-content']) .incant-kbd {
+	:global(.dark .incant-tooltip-content) .incant-kbd {
 		background-color: rgba(255, 255, 255, 0.1);
 	}
 </style>

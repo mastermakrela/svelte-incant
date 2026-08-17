@@ -12,7 +12,7 @@
 />
 
 <style>
-	:global([data-slot='dialog-close']) {
+	:global(.incant-dialog-close-button) {
 		border-radius: var(--incant-radius-sm, 0.25rem);
 		background: transparent;
 		border: none;
@@ -21,11 +21,11 @@
 		transition: opacity 0.2s;
 	}
 
-	:global([data-slot='dialog-close']:hover) {
+	:global(.incant-dialog-close-button:hover) {
 		opacity: 0.8;
 	}
 
-	:global([data-slot='dialog-close']:focus) {
+	:global(.incant-dialog-close-button:focus) {
 		outline: 2px solid var(--incant-colors-ring, hsl(240 5.9% 10%));
 		outline-offset: 2px;
 	}

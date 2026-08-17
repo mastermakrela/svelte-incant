@@ -15,21 +15,21 @@
 </tr>
 
 <style>
-	:global([data-slot='table-row']) {
+	:global(.incant-table-row) {
 		border-bottom: 1px solid var(--incant-colors-border, hsl(240 5.9% 90%));
 		transition: background-color 0.2s;
 	}
 
-	:global([data-slot='table-row']:hover) {
+	:global(.incant-table-row:hover) {
 		background-color: var(--incant-colors-muted, hsl(240 4.8% 95.9%));
 	}
 
-	:global([data-slot='table-row']:hover th),
-	:global([data-slot='table-row']:hover td) {
+	:global(.incant-table-row:hover th),
+	:global(.incant-table-row:hover td) {
 		background-color: var(--incant-colors-muted, hsl(240 4.8% 95.9%));
 	}
 
-	:global([data-slot='table-row'][data-state='selected']) {
+	:global(.incant-table-row[data-state='selected']) {
 		background-color: var(--incant-colors-muted, hsl(240 4.8% 95.9%));
 	}
 </style>

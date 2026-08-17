@@ -16,7 +16,7 @@
 />
 
 <style>
-	:global([data-slot='dialog-title']) {
+	:global(.incant-dialog-title) {
 		font-size: var(--incant-font-size-lg, 1.125rem);
 		line-height: 1;
 		font-weight: 600;

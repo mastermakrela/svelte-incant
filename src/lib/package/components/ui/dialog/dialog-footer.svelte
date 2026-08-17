@@ -20,14 +20,14 @@
 </div>
 
 <style>
-	:global([data-slot='dialog-footer']) {
+	:global(.incant-dialog-footer) {
 		display: flex;
 		flex-direction: column-reverse;
 		gap: var(--incant-spacing-2, 0.5rem);
 	}
 
 	@media (min-width: 640px) {
-		:global([data-slot='dialog-footer']) {
+		:global(.incant-dialog-footer) {
 			flex-direction: row;
 			justify-content: flex-end;
 		}

@@ -15,14 +15,14 @@
 </td>
 
 <style>
-	:global([data-slot='table-cell']) {
+	:global(.incant-table-cell) {
 		background-clip: padding-box;
 		padding: var(--incant-spacing-2, 0.5rem);
 		vertical-align: middle;
 		white-space: nowrap;
 	}
 
-	:global([data-slot='table-cell']:has([role='checkbox'])) {
+	:global(.incant-table-cell:has([role='checkbox'])) {
 		padding-right: 0;
 	}
 </style>
