@@ -1,6 +1,7 @@
 import {
 	DEFAULT_SEQUENCE_TIMEOUT,
 	formatHotkeySequence,
+	getHeldKeyCodesMap,
 	getHeldKeys,
 	getHotkeyRegistrations,
 	getSequenceManager,
@@ -237,6 +238,7 @@ export function isSequencePrefix(hotkey: Hotkey): boolean {
 
 const registrations = getHotkeyRegistrations();
 const heldKeys = getHeldKeys();
+const heldKeyCodesMap = getHeldKeyCodesMap();
 
 /** True while the hold-to-reveal modifier is down. Held keys are canonical-cased. */
 export function isRevealModifierHeld(): boolean {
@@ -252,6 +254,16 @@ export function isRevealed(declared: Hotkey): boolean {
 /** Keys currently held down, canonical-cased (`'Control'`, `'A'`, `'Space'`). */
 export function heldKeyNames(): string[] {
 	return heldKeys.keys;
+}
+
+/**
+ * Physical `event.code` of every currently held key, keyed by its held (logical) name.
+ * Layout-aware: unlike guessing a code's character from its name, this reflects what the
+ * active layout actually produces. Used to match a physical-code binding (`[Comma]`, …)
+ * against what's held — see `isStepHeld` in `hotkey-utils.ts`.
+ */
+export function heldKeyCodes(): Record<string, string> {
+	return heldKeyCodesMap.codes;
 }
 
 export type IncantShortcut = {
@@ -297,6 +309,11 @@ function toRow(
  * bottom of the palette. Rows are sorted by the first time their declared combo was
  * seen instead, which survives any re-registration.
  */
+// Deliberately a plain Map: `orderOf` writes to it while `shortcuts.current` is being
+// read, so a SvelteMap would either throw `state_unsafe_mutation` inside a derived or
+// invalidate the very derivation doing the read. Nothing observes this cache — it only
+// keeps the sort stable.
+// eslint-disable-next-line svelte/prefer-svelte-reactivity
 const rowOrder = new Map<string, number>();
 
 function orderOf(declared: string): number {

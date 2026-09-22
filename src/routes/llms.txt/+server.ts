@@ -48,6 +48,8 @@ Props:
 - deriveModifier: 'Control' (default) | 'Alt' | 'Shift' | 'Meta' | null - Modifier prefixed to keys derived from element text when shortcut() is called with no keys; null derives bare keys
 - sequenceTimeout: number, ms (default: 1500) - App-wide default for how long a chord waits for its next step
 - preventDefault: boolean (default: false) - App-wide default for every shortcut and chord; per-shortcut props still win
+- recordBy: 'key' (default) | 'code' - What the rebind recorder captures: 'key' records the logical character, 'code' records the physical key (layout-independent). Only relevant with showRebinding
+- detectConflicts: boolean (default: true) - Reject a recorded combo already registered elsewhere in the live registry (including a sequence-prefix conflict) instead of letting both fire; the row stays in recording mode and shows which shortcut it collides with. Set false to allow it, the previous behaviour. Only relevant with showRebinding
 
 sequenceTimeout and preventDefault are honoured by the Shortcut and Chord components and by the
 shortcut() attachment alike.
@@ -63,8 +65,11 @@ rebind('Control+L', ['Control+Y']); // apply an override
 rebind('Control+L', []); // clear it
 \`\`\`
 
-Rebinding onto an already-registered combo is allowed, not rejected: both shortcuts fire and
-TanStack logs a conflict warning.
+Rebinding onto an already-registered combo is rejected by default (detectConflicts, default
+true): the row stays in recording mode, the previous binding is untouched, and the palette shows
+which shortcut it collides with. Set detectConflicts={false} on <Palette /> to allow it instead —
+both then fire and TanStack logs a conflict warning. This only covers the palette's own recording
+flow; the exported rebind() still applies an override unconditionally.
 
 ### Keys derived from element text
 Call shortcut() with no keys and the first alphanumeric character of the element's text becomes the

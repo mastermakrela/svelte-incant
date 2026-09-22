@@ -27,6 +27,12 @@ export default defineConfig(
 		}
 	},
 	{
+		// Vendored shadcn-svelte primitives: `href` is a pass-through prop, so the
+		// resolve() call belongs at the call site, not inside the primitive.
+		files: ['src/lib/**/components/ui/**'],
+		rules: { 'svelte/no-navigation-without-resolve': 'off' }
+	},
+	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 
 		languageOptions: {

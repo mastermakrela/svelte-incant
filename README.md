@@ -164,6 +164,8 @@ The `Palette` component accepts several props for customization:
 - `deriveModifier`: `'Control'` (default), `'Alt'`, `'Shift'`, `'Meta'` or `null`. Modifier prefixed to keys derived from element text when `shortcut()` is called with no `keys`. `null` derives bare keys.
 - `sequenceTimeout`: Number, milliseconds (default `1500`). App-wide default for how long a chord waits for its next step.
 - `preventDefault`: Boolean (default `false`). App-wide default for every shortcut and chord. Individual `Shortcut` / `Chord` / `shortcut()` props still win.
+- `recordBy`: `'key'` (default) or `'code'`. What the rebind recorder captures — `'key'` records the logical character (`S`), `'code'` records the physical key (`[KeyS]`, layout-independent). Only relevant with `showRebinding`.
+- `detectConflicts`: Boolean (default `true`). Reject a recorded combo that's already registered elsewhere in the live registry (including a sequence-prefix conflict) instead of letting both fire — the row stays in recording mode and shows a message. Set `false` to allow it, the previous behaviour. Only relevant with `showRebinding`.
 
 `sequenceTimeout` and `preventDefault` are read by the `Shortcut` and `Chord` components **and** by
 the `shortcut()` attachment, so all three behave identically.
@@ -193,9 +195,13 @@ Three limitations worth knowing:
   rebind('Control+L', []); // clear it, back to the declared default
   ```
 
-- **Rebinding onto a combo that is already taken is allowed, not rejected.** Both shortcuts then
-  fire, and TanStack logs a conflict warning to the console. If you need it to be exclusive,
-  check against `shortcuts.current` before calling `rebind()`.
+- **Rebinding onto a combo that is already taken is rejected by default** (`detectConflicts`,
+  default `true`): the row stays in recording mode, the previous binding is untouched, and the
+  palette shows which shortcut it collides with. Set `detectConflicts={false}` on `<Palette />` to
+  allow it instead — both then fire, and TanStack logs a conflict warning to the console. Either
+  way, this only covers the palette's own recording flow — the exported `rebind()` still applies
+  an override unconditionally; check against `shortcuts.current` yourself before calling it if you
+  need the same guarantee programmatically.
 - Rebinding a chord records a whole sequence, so every step is replaced at once.
 
 ### Keys derived from element text

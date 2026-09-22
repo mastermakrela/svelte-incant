@@ -14,7 +14,10 @@
 		createHotkeyRecorder,
 		createHotkeySequenceRecorder,
 		type CanonicalModifier,
-		type HotkeySequence
+		type HotkeyConflictOptions,
+		type HotkeySequence,
+		type RecorderKeyMode,
+		type RecorderRejection
 	} from '@tanstack/svelte-hotkeys';
 	import { Keyboard, Pencil, ToggleLeft, ToggleRight } from '@lucide/svelte';
 	import CircularProgress from './components/circular-progress.svelte';
@@ -23,9 +26,10 @@
 	import * as Kbd from './components/ui/kbd/index.js';
 	import * as Table from './components/ui/table';
 	import * as Tooltip from './components/ui/tooltip';
-	import { toSequenceStepTokens } from './hotkey-utils.js';
+	import { isStepHeld } from './hotkey-utils.js';
 	import {
 		effectiveSequenceMatchedSteps,
+		heldKeyCodes,
 		heldKeyNames,
 		incantConfig,
 		incantSequences,
@@ -47,6 +51,8 @@
 		deriveModifier = 'Control',
 		sequenceTimeout = SEQUENCE_TIMEOUT_MS,
 		preventDefault = false,
+		recordBy = 'key',
+		detectConflicts = true,
 		texts = {
 			shortcutDescription: 'Open shortcut palette',
 			tooltipContent: 'Press ?',
@@ -66,7 +72,8 @@
 			rebindLabels: {
 				start: 'Record a new key combination',
 				recording: 'Press keys… Esc cancels, ⌫ restores the default',
-				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
+				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels',
+				conflict: 'Already used by another shortcut — press a different combination'
 			},
 			emptyState: 'No shortcuts containing'
 		}
@@ -86,6 +93,20 @@
 		sequenceTimeout?: number;
 		/** App-wide default for `preventDefault` on every shortcut and chord. */
 		preventDefault?: boolean;
+		/**
+		 * What the rebind recorder captures: `'key'` records the logical character (what the
+		 * key produces, e.g. `S`), `'code'` records the physical key (`[KeyS]`, layout-independent).
+		 * Defaults to `'key'` to match every other combo in this library, which is logical.
+		 */
+		recordBy?: RecorderKeyMode;
+		/**
+		 * Reject a recorded combo that's already registered elsewhere in the live registry
+		 * (including a sequence-prefix conflict), instead of letting both fire. The row stays
+		 * in recording mode and `texts.rebindLabels.conflict` is shown; the previous binding
+		 * is untouched. Set `false` to restore the pre-0.9.0 behaviour of allowing it (both
+		 * fire, TanStack logs a console warning).
+		 */
+		detectConflicts?: boolean;
 		texts?: {
 			shortcutDescription?: string;
 			tooltipContent?: string;
@@ -105,6 +126,7 @@
 				start?: string;
 				recording?: string;
 				recordingChord?: string;
+				conflict?: string;
 			};
 			emptyState?: string;
 		};
@@ -132,28 +154,76 @@
 	// at component init — hence one pair for the whole palette, keyed by the declared
 	// combo of whichever row is currently recording.
 	let recording = $state<string | null>(null);
+	// Rejection is surfaced while `recording` stays truthy: `detectConflicts` (and any
+	// other rejection reason) leaves the recorder active rather than cancelling it, so the
+	// row keeps listening — the message just needs to be shown alongside it.
+	let rejection = $state<RecorderRejection | null>(null);
 
 	function finish(steps: HotkeySequence) {
 		if (recording) rebind(recording, steps);
 		recording = null;
+		rejection = null;
 	}
 
-	const recorder = createHotkeyRecorder({
-		ignoreInputs: false,
-		onRecord: (hotkey) => finish(hotkey ? [hotkey] : []),
-		onCancel: () => (recording = null)
-	});
+	function onReject(next: RecorderRejection) {
+		rejection = next;
+	}
 
-	const sequenceRecorder = createHotkeySequenceRecorder({
+	// A row must not conflict with *itself* — recording the combo it already listens for
+	// would otherwise be flagged the moment `detectConflicts` sees its own live
+	// registration. Excluding by declared combo (rather than registration id) survives the
+	// re-registration a successful rebind causes, matching how `rebind`/`isRebound` are
+	// keyed elsewhere in this file.
+	const conflictOptions = $derived<HotkeyConflictOptions | false>(
+		detectConflicts && recording
+			? {
+					includeDisabled: true,
+					exclude: (reg) => reg.options.meta?.declared === recording
+				}
+			: false
+	);
+
+	// Passing a getter (rather than a plain options object) keeps `recordBy` reactive:
+	// the adapter re-runs `setOptions` in its own `$effect` whenever the getter's
+	// dependencies change, so the recorder never needs to be recreated for a prop change.
+	const recorder = createHotkeyRecorder(() => ({
 		ignoreInputs: false,
+		recordBy,
+		detectConflicts: conflictOptions,
+		onRecord: (hotkey) => finish([hotkey]),
+		onCancel: () => {
+			recording = null;
+			rejection = null;
+		},
+		// 0.9.0: clearing a recording (⌫ with nothing captured) calls only `onClear`, not
+		// `onRecord` with an empty value — restoring the declared default now lives here.
+		onClear: () => finish([]),
+		onReject
+	}));
+
+	const sequenceRecorder = createHotkeySequenceRecorder(() => ({
+		ignoreInputs: false,
+		recordBy,
+		detectConflicts: conflictOptions,
 		onRecord: (steps) => finish(steps),
-		onCancel: () => (recording = null)
-	});
+		onCancel: () => {
+			recording = null;
+			rejection = null;
+		},
+		onClear: () => finish([]),
+		onReject
+	}));
 
 	function startRecording(item: IncantShortcut) {
 		recording = item.declared;
+		rejection = null;
 		if (item.isChord) sequenceRecorder.startRecording();
 		else recorder.startRecording();
+	}
+
+	/** Registration `meta.description` of the shortcut a rejected candidate collides with. */
+	function conflictDescription(current: RecorderRejection | null): string | undefined {
+		return current?.conflicts?.[0]?.registration.options.meta?.description;
 	}
 
 	// Held keys are canonical-cased (`'Control'`), hotkey tokens are lower-cased.
@@ -163,10 +233,9 @@
 		const pressed = all_keys.filter((key) => !['?', '/', 'space', 'tab'].includes(key));
 		if (pressed.length === 0) return shortcuts.current;
 
+		const codes = heldKeyCodes();
 		return shortcuts.current.filter((item) =>
-			toSequenceStepTokens(item.steps)
-				.flat()
-				.some((token) => pressed.includes(token))
+			item.steps.some((step) => isStepHeld(step, pressed, codes))
 		);
 	});
 
@@ -303,6 +372,19 @@
 														'Press keys… Esc cancels, ⌫ restores the default'}
 												{/if}
 											</span>
+											{#if rejection}
+												<span class="incant-palette-rebind-conflict">
+													{#if rejection.reason === 'conflict'}
+														{texts.rebindLabels?.conflict ??
+															'Already used by another shortcut — press a different combination'}
+														{#if conflictDescription(rejection)}
+															({conflictDescription(rejection)})
+														{/if}
+													{:else}
+														{rejection.message}
+													{/if}
+												</span>
+											{/if}
 										{:else}
 											<button
 												type="button"
@@ -500,13 +582,31 @@
 		color: #10b981; /* green-500 — this row is no longer on its declared combo */
 	}
 
+	/*
+	 * The hint wraps rather than forcing the cell wide: it is the widest thing in the
+	 * Rebind column, and `nowrap` pushed the whole table past the dialog on narrow
+	 * screens (~605px of table in a 358px dialog at 390px wide). `flex-wrap` keeps the
+	 * chord `Kbds` intact while the text beside it reflows.
+	 */
 	:global(.incant-palette-recording) {
 		display: inline-flex;
 		align-items: center;
+		flex-wrap: wrap;
+		justify-content: flex-end;
 		gap: var(--incant-spacing-2, 0.5rem);
 		font-size: var(--incant-font-size-xs, 0.75rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
-		white-space: nowrap;
+		white-space: normal;
+		text-align: right;
+	}
+
+	:global(.incant-palette-rebind-conflict) {
+		display: block;
+		margin-top: var(--incant-spacing-1, 0.25rem);
+		font-size: var(--incant-font-size-xs, 0.75rem);
+		color: #ef4444; /* red-500 */
+		white-space: normal;
+		text-align: right;
 	}
 
 	/* Empty State */
