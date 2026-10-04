@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Button } from '$lib/components/ui/button';
-	import { Chord, Focus, Palette, shortcut } from '$lib';
-	import ComboboxExample from '$lib/combobox-example.svelte';
-	import CodeBlock from '$lib/components/CodeBlock.svelte';
-	import Header from '$lib/components/header.svelte';
-	import Kbds from '$lib/package/components/kbds.svelte';
-	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import * as Kbd from '$lib/package/components/ui/kbd/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import type { PalettePosition } from '$lib/package/palette.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import { Chord, Focus, Palette, shortcut } from '#lib';
+	import ComboboxExample from '#lib/combobox-example.svelte';
+	import CodeBlock from '#lib/components/CodeBlock.svelte';
+	import Header from '#lib/components/header.svelte';
+	import Kbds from '#lib/package/components/kbds.svelte';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import * as Kbd from '#lib/package/components/ui/kbd/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
+	import type { PalettePosition } from '#lib/package/palette.svelte';
 
 	const installCode = `bun add svelte-incant`;
 
@@ -621,7 +621,7 @@
 				>
 			</p>
 			<p>
-				<a href={resolve('/llms.txt')} target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly
+				<a href={resolve('llms.txt')} target="_blank" class="hover:underline">llms.txt</a> - LLM-friendly
 				documentation
 			</p>
 		</footer>

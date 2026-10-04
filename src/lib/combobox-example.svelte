@@ -1,13 +1,13 @@
 <script lang="ts">
-	import CodeBlock from '$lib/components/CodeBlock.svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Card from '$lib/components/ui/card';
-	import * as Command from '$lib/components/ui/command/index.js';
-	import * as Popover from '$lib/components/ui/popover/index.js';
-	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import { shortcut } from '$lib';
+	import CodeBlock from '#lib/components/CodeBlock.svelte';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Card from '#lib/components/ui/card/index.js';
+	import * as Command from '#lib/components/ui/command/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
+	import { shortcut } from '#lib';
 
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import { tick } from 'svelte';
