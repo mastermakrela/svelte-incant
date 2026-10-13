@@ -52,7 +52,8 @@
 		keys,
 		description,
 		action: focusChild,
-		click
+		// focusChild clicks the child itself; clicking the wrapper too would fire ancestors' handlers twice.
+		click: false
 	})}
 >
 	{@render children()}
