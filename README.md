@@ -327,10 +327,10 @@ If you see errors about missing peer dependencies, ensure you have the required 
 
 ```bash
 # Check if peer dependencies are installed
-bun list | grep -E "(bits-ui|runed|@lucide/svelte)"
+bun list | grep -E "(bits-ui|@tanstack/(svelte-)?hotkeys)"
 
 # If missing, install them manually
-bun add bits-ui runed @lucide/svelte
+bun add bits-ui @tanstack/hotkeys @tanstack/svelte-hotkeys
 ```
 
 ### Styles are missing
