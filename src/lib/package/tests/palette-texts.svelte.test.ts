@@ -24,4 +24,13 @@ describe('palette texts', () => {
 			.element(page.getByRole('button', { name: 'Open shortcut palette' }))
 			.toBeInTheDocument();
 	});
+
+	it('keeps the table out of the dialog description that screen readers announce', async () => {
+		render(Palette);
+		openPalette();
+
+		await expect.element(page.getByRole('table')).toBeInTheDocument();
+		expect(document.querySelector('[data-slot="dialog-description"] table')).toBeNull();
+		closePalette();
+	});
 });

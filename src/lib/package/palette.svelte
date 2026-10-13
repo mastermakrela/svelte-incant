@@ -260,92 +260,88 @@
 		<Dialog.Header>
 			<Dialog.Title>{t.dialogTitle}</Dialog.Title>
 			<Dialog.Description class="incant-palette-description">
-				<p class="incant-palette-description-text">
-					{t.descriptionText}
-				</p>
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{t.tableHeaders.keys}</Table.Head>
-							<Table.Head>{t.tableHeaders.description}</Table.Head>
-							{#if showToggles}
-								<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.enabled}</Table.Head
-								>
-							{/if}
-							{#if showRebinding}
-								<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.rebind}</Table.Head>
-							{/if}
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filtered_shortcuts as item (item.id)}
-							<Table.Row>
-								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={item.steps} isChord={item.isChord} />
-								</Table.Cell>
-								<Table.Cell>{item.description}</Table.Cell>
-								{#if showToggles}
-									<Table.Cell class="incant-palette-cell-actions">
-										<button
-											type="button"
-											class="incant-palette-toggle"
-											onclick={() => item.toggle()}
-											aria-label={item.enabled ? t.toggleLabels.disable : t.toggleLabels.enable}
-											tabindex="0"
-										>
-											{#if item.enabled}
-												<ToggleRight class="incant-palette-toggle-icon enabled" />
-											{:else}
-												<ToggleLeft class="incant-palette-toggle-icon disabled" />
-											{/if}
-										</button>
-									</Table.Cell>
-								{/if}
-								{#if showRebinding}
-									<Table.Cell class="incant-palette-cell-actions">
-										{#if recording === item.declared}
-											<span class="incant-palette-recording">
-												{#if item.isChord}
-													<Kbds keys={sequenceRecorder.steps} isChord={true} />
-													{t.rebindLabels.recordingChord}
-												{:else}
-													{t.rebindLabels.recording}
-												{/if}
-											</span>
-										{:else}
-											<button
-												type="button"
-												class={[
-													'incant-palette-toggle',
-													{ 'incant-palette-rebound': item.rebound }
-												]}
-												onclick={() => startRecording(item)}
-												aria-label={t.rebindLabels.start}
-												tabindex="0"
-											>
-												<Pencil class="incant-palette-toggle-icon" />
-											</button>
-										{/if}
-									</Table.Cell>
-								{/if}
-							</Table.Row>
-						{:else}
-							<Table.Row>
-								<Table.Cell
-									colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
-									class="incant-palette-empty-state"
-								>
-									{t.emptyState}
-									<Kbds keys={all_keys} />
-
-									.
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
+				{t.descriptionText}
 			</Dialog.Description>
 		</Dialog.Header>
+		<div class="incant-palette-table">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{t.tableHeaders.keys}</Table.Head>
+						<Table.Head>{t.tableHeaders.description}</Table.Head>
+						{#if showToggles}
+							<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.enabled}</Table.Head>
+						{/if}
+						{#if showRebinding}
+							<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.rebind}</Table.Head>
+						{/if}
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each filtered_shortcuts as item (item.id)}
+						<Table.Row>
+							<Table.Cell class="incant-palette-cell-keys">
+								<Kbds keys={item.steps} isChord={item.isChord} />
+							</Table.Cell>
+							<Table.Cell>{item.description}</Table.Cell>
+							{#if showToggles}
+								<Table.Cell class="incant-palette-cell-actions">
+									<button
+										type="button"
+										class="incant-palette-toggle"
+										onclick={() => item.toggle()}
+										aria-label={item.enabled ? t.toggleLabels.disable : t.toggleLabels.enable}
+										tabindex="0"
+									>
+										{#if item.enabled}
+											<ToggleRight class="incant-palette-toggle-icon enabled" />
+										{:else}
+											<ToggleLeft class="incant-palette-toggle-icon disabled" />
+										{/if}
+									</button>
+								</Table.Cell>
+							{/if}
+							{#if showRebinding}
+								<Table.Cell class="incant-palette-cell-actions">
+									{#if recording === item.declared}
+										<span class="incant-palette-recording">
+											{#if item.isChord}
+												<Kbds keys={sequenceRecorder.steps} isChord={true} />
+												{t.rebindLabels.recordingChord}
+											{:else}
+												{t.rebindLabels.recording}
+											{/if}
+										</span>
+									{:else}
+										<button
+											type="button"
+											class={['incant-palette-toggle', { 'incant-palette-rebound': item.rebound }]}
+											onclick={() => startRecording(item)}
+											aria-label={t.rebindLabels.start}
+											tabindex="0"
+										>
+											<Pencil class="incant-palette-toggle-icon" />
+										</button>
+									{/if}
+								</Table.Cell>
+							{/if}
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell
+								colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
+								class="incant-palette-empty-state"
+							>
+								{t.emptyState}
+								<Kbds keys={all_keys} />
+
+								.
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</div>
 	</Dialog.Content>
 </Dialog.Root>
 
@@ -450,11 +446,11 @@
 
 	/* Palette Description */
 	:global(.incant-palette-description) {
-		margin: 2rem 0;
+		margin-top: 2rem;
 	}
 
-	:global(.incant-palette-description-text) {
-		margin-bottom: 1rem;
+	:global(.incant-palette-table) {
+		margin-bottom: 2rem;
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
