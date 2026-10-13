@@ -238,7 +238,12 @@
 	<Tooltip.Root bind:open={tooltip_open}>
 		<Tooltip.Trigger onclick={togglePalette}>
 			{#snippet child({ props })}
-				<button {...props} style={positionStyles} class={['incant-palette-trigger']}>
+				<button
+					{...props}
+					style={positionStyles}
+					class={['incant-palette-trigger']}
+					aria-label={t.shortcutDescription}
+				>
 					<Keyboard />
 				</button>
 			{/snippet}

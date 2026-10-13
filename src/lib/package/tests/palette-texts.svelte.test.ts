@@ -16,4 +16,12 @@ describe('palette texts', () => {
 		await expect.element(page.getByText('Keys', { exact: true })).toBeInTheDocument();
 		closePalette();
 	});
+
+	it('names the trigger button, which only holds an icon', async () => {
+		render(Palette);
+
+		await expect
+			.element(page.getByRole('button', { name: 'Open shortcut palette' }))
+			.toBeInTheDocument();
+	});
 });
