@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.1] - 2026-08-17
+
+- fix: Style the vendored dialog, table, tooltip and kbd components through `.incant-*` classes instead of `data-slot` attributes, so they no longer restyle a host app's own shadcn components
+
 ## [0.9.0] - 2026-07-27
 
 - breaking: Upgrading from 0.8.0 — the props 0.8.0 renamed are renamed back: `<Shortcut hotkey>`, `<Focus hotkey>` and `shortcut({ hotkey })` are `keys` again, and `<Chord sequence>` is `steps` again. The values stay TanStack hotkey strings (`'Mod+K'`, `['Mod+K', 'B']`), so only the prop names change.

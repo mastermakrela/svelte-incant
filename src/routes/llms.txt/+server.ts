@@ -1,3 +1,5 @@
+import { version } from '../../../package.json';
+
 export const prerender = true;
 
 export async function GET() {
@@ -5,7 +7,7 @@ export async function GET() {
 
 ## Package Information
 Name: svelte-incant
-Version: 0.9.0
+Version: ${version}
 Description: A keyboard shortcut management library for Svelte 5
 Repository: https://github.com/mastermakrela/svelte-incant
 Documentation: https://svelte-incant.mastermakrela.com/
@@ -305,11 +307,7 @@ element it is attached to.
 - CSS custom properties support required for theming
 
 ## License
-MIT License - https://github.com/mastermakrela/svelte-incant/blob/main/LICENSE
-
-## Contributing
-Contributions welcome! Please visit:
-https://github.com/mastermakrela/svelte-incant/blob/main/CONTRIBUTING.md
+MIT
 
 ## Support
 - Issues: https://github.com/mastermakrela/svelte-incant/issues
@@ -318,7 +316,7 @@ https://github.com/mastermakrela/svelte-incant/blob/main/CONTRIBUTING.md
 
 ---
 Generated on: ${new Date().toISOString()}
-Package: svelte-incant v0.9.0
+Package: svelte-incant v${version}
 This file is designed to help LLMs understand and use this package effectively.
 `;
 
