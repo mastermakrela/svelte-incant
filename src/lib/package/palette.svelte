@@ -7,6 +7,30 @@
 		| 'bottom-center'
 		| 'bottom-right'
 		| 'none';
+
+	const DEFAULT_TEXTS = {
+		shortcutDescription: 'Open shortcut palette',
+		tooltipContent: 'Press ?',
+		dialogTitle: 'Keyboard Shortcuts',
+		descriptionText:
+			'Press any key to filter shortcuts containing that key. Matching keys will be highlighted in green.',
+		tableHeaders: {
+			keys: 'Keys',
+			description: 'Description',
+			enabled: 'Enabled',
+			rebind: 'Rebind'
+		},
+		toggleLabels: {
+			enable: 'Enable shortcut',
+			disable: 'Disable shortcut'
+		},
+		rebindLabels: {
+			start: 'Record a new key combination',
+			recording: 'Press keys… Esc cancels, ⌫ restores the default',
+			recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
+		},
+		emptyState: 'No shortcuts containing'
+	};
 </script>
 
 <script lang="ts">
@@ -47,29 +71,7 @@
 		deriveModifier = 'Control',
 		sequenceTimeout = SEQUENCE_TIMEOUT_MS,
 		preventDefault = false,
-		texts = {
-			shortcutDescription: 'Open shortcut palette',
-			tooltipContent: 'Press ?',
-			dialogTitle: 'Keyboard Shortcuts',
-			descriptionText:
-				'Press any key to filter shortcuts containing that key. Matching keys will be highlighted in green.',
-			tableHeaders: {
-				keys: 'Keys',
-				description: 'Description',
-				enabled: 'Enabled',
-				rebind: 'Rebind'
-			},
-			toggleLabels: {
-				enable: 'Enable shortcut',
-				disable: 'Disable shortcut'
-			},
-			rebindLabels: {
-				start: 'Record a new key combination',
-				recording: 'Press keys… Esc cancels, ⌫ restores the default',
-				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
-			},
-			emptyState: 'No shortcuts containing'
-		}
+		texts = {}
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
@@ -109,6 +111,15 @@
 			emptyState?: string;
 		};
 	} = $props();
+
+	// `texts` may override any subset, so every level is merged over its defaults.
+	const t = $derived({
+		...DEFAULT_TEXTS,
+		...texts,
+		tableHeaders: { ...DEFAULT_TEXTS.tableHeaders, ...texts.tableHeaders },
+		toggleLabels: { ...DEFAULT_TEXTS.toggleLabels, ...texts.toggleLabels },
+		rebindLabels: { ...DEFAULT_TEXTS.rebindLabels, ...texts.rebindLabels }
+	});
 
 	let tooltip_open = $state(false);
 
@@ -219,7 +230,7 @@
      Shift+ß on QWERTZ) matches — the string `'?'` would fail TanStack's shiftKey check. -->
 <Shortcut
 	keys={{ key: '?', shift: true }}
-	description={texts.shortcutDescription}
+	description={t.shortcutDescription}
 	action={togglePalette}
 />
 
@@ -233,7 +244,7 @@
 			{/snippet}
 		</Tooltip.Trigger>
 		<Tooltip.Content>
-			{texts.tooltipContent}
+			{t.tooltipContent}
 			<Kbd.Root>?</Kbd.Root>
 		</Tooltip.Content>
 	</Tooltip.Root>
@@ -242,25 +253,22 @@
 <Dialog.Root bind:open={paletteState.open}>
 	<Dialog.Content portalProps={{ disabled: true }}>
 		<Dialog.Header>
-			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>
+			<Dialog.Title>{t.dialogTitle}</Dialog.Title>
 			<Dialog.Description class="incant-palette-description">
 				<p class="incant-palette-description-text">
-					{texts.descriptionText}
+					{t.descriptionText}
 				</p>
 				<Table.Root>
 					<Table.Header>
 						<Table.Row>
-							<Table.Head>{texts.tableHeaders?.keys ?? 'Keys'}</Table.Head>
-							<Table.Head>{texts.tableHeaders?.description ?? 'Description'}</Table.Head>
+							<Table.Head>{t.tableHeaders.keys}</Table.Head>
+							<Table.Head>{t.tableHeaders.description}</Table.Head>
 							{#if showToggles}
-								<Table.Head class="incant-palette-cell-actions"
-									>{texts.tableHeaders?.enabled ?? 'Enabled'}</Table.Head
+								<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.enabled}</Table.Head
 								>
 							{/if}
 							{#if showRebinding}
-								<Table.Head class="incant-palette-cell-actions"
-									>{texts.tableHeaders?.rebind ?? 'Rebind'}</Table.Head
-								>
+								<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.rebind}</Table.Head>
 							{/if}
 						</Table.Row>
 					</Table.Header>
@@ -277,9 +285,7 @@
 											type="button"
 											class="incant-palette-toggle"
 											onclick={() => item.toggle()}
-											aria-label={item.enabled
-												? (texts.toggleLabels?.disable ?? 'Disable shortcut')
-												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
+											aria-label={item.enabled ? t.toggleLabels.disable : t.toggleLabels.enable}
 											tabindex="0"
 										>
 											{#if item.enabled}
@@ -296,11 +302,9 @@
 											<span class="incant-palette-recording">
 												{#if item.isChord}
 													<Kbds keys={sequenceRecorder.steps} isChord={true} />
-													{texts.rebindLabels?.recordingChord ??
-														'Press each step… Enter saves, ⌫ undoes, Esc cancels'}
+													{t.rebindLabels.recordingChord}
 												{:else}
-													{texts.rebindLabels?.recording ??
-														'Press keys… Esc cancels, ⌫ restores the default'}
+													{t.rebindLabels.recording}
 												{/if}
 											</span>
 										{:else}
@@ -311,7 +315,7 @@
 													{ 'incant-palette-rebound': item.rebound }
 												]}
 												onclick={() => startRecording(item)}
-												aria-label={texts.rebindLabels?.start ?? 'Record a new key combination'}
+												aria-label={t.rebindLabels.start}
 												tabindex="0"
 											>
 												<Pencil class="incant-palette-toggle-icon" />
@@ -326,7 +330,7 @@
 									colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
 									class="incant-palette-empty-state"
 								>
-									{texts.emptyState}
+									{t.emptyState}
 									<Kbds keys={all_keys} />
 
 									.
