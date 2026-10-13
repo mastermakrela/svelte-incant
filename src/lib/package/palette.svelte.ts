@@ -297,6 +297,8 @@ function toRow(
  * bottom of the palette. Rows are sorted by the first time their declared combo was
  * seen instead, which survives any re-registration.
  */
+// Plain Map on purpose: `orderOf` fills it while a $derived reads the rows, where a SvelteMap write would throw.
+// eslint-disable-next-line svelte/prefer-svelte-reactivity
 const rowOrder = new Map<string, number>();
 
 function orderOf(declared: string): number {
