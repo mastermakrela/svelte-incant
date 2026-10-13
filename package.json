@@ -24,9 +24,10 @@
 		"test:e2e": "playwright test"
 	},
 	"files": [
-		"dist",
-		"!dist/**/*.test.*",
-		"!dist/**/*.spec.*"
+		"dist/index.js",
+		"dist/index.d.ts",
+		"dist/package",
+		"!dist/package/tests"
 	],
 	"sideEffects": false,
 	"svelte": "./dist/index.js",
