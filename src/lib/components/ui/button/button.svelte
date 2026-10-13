@@ -56,6 +56,8 @@
 </script>
 
 {#if href}
+	<!-- Generic button: callers pass their own (often external) hrefs, so resolve() does not apply. -->
+	<!-- eslint-disable svelte/no-navigation-without-resolve -->
 	<a
 		bind:this={ref}
 		data-slot="button"
@@ -68,6 +70,7 @@
 	>
 		{@render children?.()}
 	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 {:else}
 	<button
 		bind:this={ref}

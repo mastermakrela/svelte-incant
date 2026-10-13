@@ -51,16 +51,14 @@ jobs:
             }
             
             const isNewer = compareVersions(current, latest) > 0;
-            if (isNewer) {
-              console.log('Version is newer, will publish');
-            } else {
-              console.log('Version not newer, skipping publish');
-              process.exit(1);
-            }
+            console.log(isNewer ? 'Version is newer, will publish' : 'Version not newer, skipping publish');
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'publish=' + isNewer + '\\n');
           "
 
       - name: Build package
+        if: steps.version-check.outputs.publish == 'true'
         run: npm run build
 
       - name: Publish to npm
+        if: steps.version-check.outputs.publish == 'true'
         run: npm publish

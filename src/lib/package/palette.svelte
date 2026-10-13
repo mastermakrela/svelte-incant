@@ -7,6 +7,30 @@
 		| 'bottom-center'
 		| 'bottom-right'
 		| 'none';
+
+	const DEFAULT_TEXTS = {
+		shortcutDescription: 'Open shortcut palette',
+		tooltipContent: 'Press ?',
+		dialogTitle: 'Keyboard Shortcuts',
+		descriptionText:
+			'Press any key to filter shortcuts containing that key. Matching keys will be highlighted in green.',
+		tableHeaders: {
+			keys: 'Keys',
+			description: 'Description',
+			enabled: 'Enabled',
+			rebind: 'Rebind'
+		},
+		toggleLabels: {
+			enable: 'Enable shortcut',
+			disable: 'Disable shortcut'
+		},
+		rebindLabels: {
+			start: 'Record a new key combination',
+			recording: 'Press keys… Esc cancels, ⌫ restores the default',
+			recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
+		},
+		emptyState: 'No shortcuts containing'
+	};
 </script>
 
 <script lang="ts">
@@ -16,7 +40,10 @@
 		type CanonicalModifier,
 		type HotkeySequence
 	} from '@tanstack/svelte-hotkeys';
-	import { Keyboard, Pencil, ToggleLeft, ToggleRight } from '@lucide/svelte';
+	import Keyboard from '@lucide/svelte/icons/keyboard';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import ToggleLeft from '@lucide/svelte/icons/toggle-left';
+	import ToggleRight from '@lucide/svelte/icons/toggle-right';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
@@ -47,29 +74,7 @@
 		deriveModifier = 'Control',
 		sequenceTimeout = SEQUENCE_TIMEOUT_MS,
 		preventDefault = false,
-		texts = {
-			shortcutDescription: 'Open shortcut palette',
-			tooltipContent: 'Press ?',
-			dialogTitle: 'Keyboard Shortcuts',
-			descriptionText:
-				'Press any key to filter shortcuts containing that key. Matching keys will be highlighted in green.',
-			tableHeaders: {
-				keys: 'Keys',
-				description: 'Description',
-				enabled: 'Enabled',
-				rebind: 'Rebind'
-			},
-			toggleLabels: {
-				enable: 'Enable shortcut',
-				disable: 'Disable shortcut'
-			},
-			rebindLabels: {
-				start: 'Record a new key combination',
-				recording: 'Press keys… Esc cancels, ⌫ restores the default',
-				recordingChord: 'Press each step… Enter saves, ⌫ undoes, Esc cancels'
-			},
-			emptyState: 'No shortcuts containing'
-		}
+		texts = {}
 	}: {
 		position?: PalettePosition;
 		showToggles?: boolean;
@@ -109,6 +114,15 @@
 			emptyState?: string;
 		};
 	} = $props();
+
+	// `texts` may override any subset, so every level is merged over its defaults.
+	const t = $derived({
+		...DEFAULT_TEXTS,
+		...texts,
+		tableHeaders: { ...DEFAULT_TEXTS.tableHeaders, ...texts.tableHeaders },
+		toggleLabels: { ...DEFAULT_TEXTS.toggleLabels, ...texts.toggleLabels },
+		rebindLabels: { ...DEFAULT_TEXTS.rebindLabels, ...texts.rebindLabels }
+	});
 
 	let tooltip_open = $state(false);
 
@@ -219,7 +233,7 @@
      Shift+ß on QWERTZ) matches — the string `'?'` would fail TanStack's shiftKey check. -->
 <Shortcut
 	keys={{ key: '?', shift: true }}
-	description={texts.shortcutDescription}
+	description={t.shortcutDescription}
 	action={togglePalette}
 />
 
@@ -227,13 +241,18 @@
 	<Tooltip.Root bind:open={tooltip_open}>
 		<Tooltip.Trigger onclick={togglePalette}>
 			{#snippet child({ props })}
-				<button {...props} style={positionStyles} class={['incant-palette-trigger']}>
+				<button
+					{...props}
+					style={positionStyles}
+					class={['incant-palette-trigger']}
+					aria-label={t.shortcutDescription}
+				>
 					<Keyboard />
 				</button>
 			{/snippet}
 		</Tooltip.Trigger>
 		<Tooltip.Content>
-			{texts.tooltipContent}
+			{t.tooltipContent}
 			<Kbd.Root>?</Kbd.Root>
 		</Tooltip.Content>
 	</Tooltip.Root>
@@ -242,101 +261,90 @@
 <Dialog.Root bind:open={paletteState.open}>
 	<Dialog.Content portalProps={{ disabled: true }}>
 		<Dialog.Header>
-			<Dialog.Title>{texts.dialogTitle}</Dialog.Title>
+			<Dialog.Title>{t.dialogTitle}</Dialog.Title>
 			<Dialog.Description class="incant-palette-description">
-				<p class="incant-palette-description-text">
-					{texts.descriptionText}
-				</p>
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head>{texts.tableHeaders?.keys ?? 'Keys'}</Table.Head>
-							<Table.Head>{texts.tableHeaders?.description ?? 'Description'}</Table.Head>
-							{#if showToggles}
-								<Table.Head class="incant-palette-cell-actions"
-									>{texts.tableHeaders?.enabled ?? 'Enabled'}</Table.Head
-								>
-							{/if}
-							{#if showRebinding}
-								<Table.Head class="incant-palette-cell-actions"
-									>{texts.tableHeaders?.rebind ?? 'Rebind'}</Table.Head
-								>
-							{/if}
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each filtered_shortcuts as item (item.id)}
-							<Table.Row>
-								<Table.Cell class="incant-palette-cell-keys">
-									<Kbds keys={item.steps} isChord={item.isChord} />
-								</Table.Cell>
-								<Table.Cell>{item.description}</Table.Cell>
-								{#if showToggles}
-									<Table.Cell class="incant-palette-cell-actions">
-										<button
-											type="button"
-											class="incant-palette-toggle"
-											onclick={() => item.toggle()}
-											aria-label={item.enabled
-												? (texts.toggleLabels?.disable ?? 'Disable shortcut')
-												: (texts.toggleLabels?.enable ?? 'Enable shortcut')}
-											tabindex="0"
-										>
-											{#if item.enabled}
-												<ToggleRight class="incant-palette-toggle-icon enabled" />
-											{:else}
-												<ToggleLeft class="incant-palette-toggle-icon disabled" />
-											{/if}
-										</button>
-									</Table.Cell>
-								{/if}
-								{#if showRebinding}
-									<Table.Cell class="incant-palette-cell-actions">
-										{#if recording === item.declared}
-											<span class="incant-palette-recording">
-												{#if item.isChord}
-													<Kbds keys={sequenceRecorder.steps} isChord={true} />
-													{texts.rebindLabels?.recordingChord ??
-														'Press each step… Enter saves, ⌫ undoes, Esc cancels'}
-												{:else}
-													{texts.rebindLabels?.recording ??
-														'Press keys… Esc cancels, ⌫ restores the default'}
-												{/if}
-											</span>
-										{:else}
-											<button
-												type="button"
-												class={[
-													'incant-palette-toggle',
-													{ 'incant-palette-rebound': item.rebound }
-												]}
-												onclick={() => startRecording(item)}
-												aria-label={texts.rebindLabels?.start ?? 'Record a new key combination'}
-												tabindex="0"
-											>
-												<Pencil class="incant-palette-toggle-icon" />
-											</button>
-										{/if}
-									</Table.Cell>
-								{/if}
-							</Table.Row>
-						{:else}
-							<Table.Row>
-								<Table.Cell
-									colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
-									class="incant-palette-empty-state"
-								>
-									{texts.emptyState}
-									<Kbds keys={all_keys} />
-
-									.
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
+				{t.descriptionText}
 			</Dialog.Description>
 		</Dialog.Header>
+		<div class="incant-palette-table">
+			<Table.Root>
+				<Table.Header>
+					<Table.Row>
+						<Table.Head>{t.tableHeaders.keys}</Table.Head>
+						<Table.Head>{t.tableHeaders.description}</Table.Head>
+						{#if showToggles}
+							<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.enabled}</Table.Head>
+						{/if}
+						{#if showRebinding}
+							<Table.Head class="incant-palette-cell-actions">{t.tableHeaders.rebind}</Table.Head>
+						{/if}
+					</Table.Row>
+				</Table.Header>
+				<Table.Body>
+					{#each filtered_shortcuts as item (item.id)}
+						<Table.Row>
+							<Table.Cell class="incant-palette-cell-keys">
+								<Kbds keys={item.steps} isChord={item.isChord} />
+							</Table.Cell>
+							<Table.Cell>{item.description}</Table.Cell>
+							{#if showToggles}
+								<Table.Cell class="incant-palette-cell-actions">
+									<button
+										type="button"
+										class="incant-palette-toggle"
+										onclick={() => item.toggle()}
+										aria-label={item.enabled ? t.toggleLabels.disable : t.toggleLabels.enable}
+										tabindex="0"
+									>
+										{#if item.enabled}
+											<ToggleRight class="incant-palette-toggle-icon enabled" />
+										{:else}
+											<ToggleLeft class="incant-palette-toggle-icon disabled" />
+										{/if}
+									</button>
+								</Table.Cell>
+							{/if}
+							{#if showRebinding}
+								<Table.Cell class="incant-palette-cell-actions">
+									{#if recording === item.declared}
+										<span class="incant-palette-recording">
+											{#if item.isChord}
+												<Kbds keys={sequenceRecorder.steps} isChord={true} />
+												{t.rebindLabels.recordingChord}
+											{:else}
+												{t.rebindLabels.recording}
+											{/if}
+										</span>
+									{:else}
+										<button
+											type="button"
+											class={['incant-palette-toggle', { 'incant-palette-rebound': item.rebound }]}
+											onclick={() => startRecording(item)}
+											aria-label={t.rebindLabels.start}
+											tabindex="0"
+										>
+											<Pencil class="incant-palette-toggle-icon" />
+										</button>
+									{/if}
+								</Table.Cell>
+							{/if}
+						</Table.Row>
+					{:else}
+						<Table.Row>
+							<Table.Cell
+								colspan={2 + (showToggles ? 1 : 0) + (showRebinding ? 1 : 0)}
+								class="incant-palette-empty-state"
+							>
+								{t.emptyState}
+								<Kbds keys={all_keys} />
+
+								.
+							</Table.Cell>
+						</Table.Row>
+					{/each}
+				</Table.Body>
+			</Table.Root>
+		</div>
 	</Dialog.Content>
 </Dialog.Root>
 
@@ -441,11 +449,11 @@
 
 	/* Palette Description */
 	:global(.incant-palette-description) {
-		margin: 2rem 0;
+		margin-top: 2rem;
 	}
 
-	:global(.incant-palette-description-text) {
-		margin-bottom: 1rem;
+	:global(.incant-palette-table) {
+		margin-bottom: 2rem;
 		font-size: var(--incant-font-size-sm, 0.875rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
 	}
