@@ -49,6 +49,7 @@
 		if (!code) return;
 		if (cannotDetectLanguage) {
 			highlightedCode = escapeHtml(code);
+			return;
 		}
 
 		if (autodetect) {
