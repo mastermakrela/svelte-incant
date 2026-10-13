@@ -40,7 +40,10 @@
 		type CanonicalModifier,
 		type HotkeySequence
 	} from '@tanstack/svelte-hotkeys';
-	import { Keyboard, Pencil, ToggleLeft, ToggleRight } from '@lucide/svelte';
+	import Keyboard from '@lucide/svelte/icons/keyboard';
+	import Pencil from '@lucide/svelte/icons/pencil';
+	import ToggleLeft from '@lucide/svelte/icons/toggle-left';
+	import ToggleRight from '@lucide/svelte/icons/toggle-right';
 	import CircularProgress from './components/circular-progress.svelte';
 	import Kbds from './components/kbds.svelte';
 	import * as Dialog from './components/ui/dialog/index.js';
