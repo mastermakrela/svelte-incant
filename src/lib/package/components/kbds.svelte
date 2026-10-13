@@ -54,11 +54,7 @@
 </Kbd.Group>
 
 <style>
-	.incant-kbds-separator {
-		margin: 0 var(--incant-spacing-1, 0.25rem);
-		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
-	}
-
+	.incant-kbds-separator,
 	.incant-kbds-chord-separator {
 		margin: 0 var(--incant-spacing-1, 0.25rem);
 		color: var(--incant-colors-muted-foreground, hsl(240 3.8% 46.1%));
