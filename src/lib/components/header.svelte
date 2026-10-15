@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { shortcut } from '$lib';
+	import { shortcut } from '#lib';
 	import { formatForDisplay } from '@tanstack/svelte-hotkeys';
-	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Kbd from '$lib/package/components/ui/kbd/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Kbd from '#lib/package/components/ui/kbd/index.js';
 	import { useInterval } from 'runed';
 
 	const altSymbol = formatForDisplay('Alt');
