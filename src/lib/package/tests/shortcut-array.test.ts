@@ -1,6 +1,7 @@
 import { normalizeHotkey } from '@tanstack/svelte-hotkeys';
 import { describe, expect, it } from 'vitest';
 import {
+	isStepHeld,
 	parseSequence,
 	toHotkeyTokens,
 	toSequence,
@@ -30,6 +31,45 @@ describe('Shortcut Spec Functionality', () => {
 
 		it('names the space key so it can be matched against held keys', () => {
 			expect(toHotkeyTokens('Control+Space')).toStrictEqual(['control', 'space']);
+		});
+
+		// 0.9.0: ParsedHotkey is a union of a logical `key` binding and a physical `code`
+		// binding (no `key`). A code-only combo, e.g. from a `recordBy="code"` rebind, must
+		// still tokenize instead of throwing on the missing `key` — otherwise it would
+		// silently vanish from hold-to-reveal filtering (`filtered_shortcuts` in palette.svelte).
+		it('tokenizes a physical-code binding by stripping the Key/Digit prefix', () => {
+			expect(toHotkeyTokens('Control+[KeyS]')).toStrictEqual(['control', 's']);
+			expect(toHotkeyTokens('Control+[Digit1]')).toStrictEqual(['1', 'control']);
+		});
+
+		it('falls back to the lower-cased code for a code with no known label', () => {
+			// `Comma`/`BracketLeft`-style codes have no single-character display form, so this
+			// is just a readable token for the `action(keys)` callback — it is not layout-aware
+			// and is not what held-key matching uses (see `isStepHeld` below).
+			expect(toHotkeyTokens('Control+[Comma]')).toStrictEqual(['comma', 'control']);
+		});
+	});
+
+	describe('isStepHeld', () => {
+		it('matches a logical binding when either the modifier or the key is held', () => {
+			// Palette filtering is a permissive "any token" match (holding just `Control`
+			// surfaces every `Control+*` shortcut) — same OR semantics as before this swap.
+			expect(isStepHeld('Control+S', ['control', 's'], {})).toBe(true);
+			expect(isStepHeld('Control+S', ['control'], {})).toBe(true);
+			expect(isStepHeld('Control+S', ['s'], {})).toBe(true);
+			expect(isStepHeld('Control+S', ['x'], {})).toBe(false);
+		});
+
+		it('matches a physical-code main key by the held key’s code, not a guessed token', () => {
+			// The declared step is `[Comma]`; nothing in `pressedKeyNames` (logical key names)
+			// can ever equal `'comma'` on a non-US layout — only `heldCodes` can confirm this.
+			// No modifier held here, so this exercises the code path, not the modifier OR.
+			expect(isStepHeld('[Comma]', [], { ',': 'Comma' })).toBe(true);
+			expect(isStepHeld('[Comma]', [], { m: 'KeyM' })).toBe(false);
+		});
+
+		it('still matches a physical-code binding via its modifier alone', () => {
+			expect(isStepHeld('Shift+[Comma]', ['shift'], {})).toBe(true);
 		});
 	});
 

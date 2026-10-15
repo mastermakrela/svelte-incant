@@ -36,9 +36,10 @@
 
 	let hotkeyGroups: Hotkey[] = $derived.by(() => toHotkeyGroups(keys, isChord));
 
-	// Mac symbols render tight (`⌘J`, not 0.8.0's `⌘ J`); Windows/Linux keep the
-	// default `+` between text labels (`Ctrl+Shift+S` — an empty separator would
-	// concatenate them into `CtrlShiftS`).
+	// `formatForDisplay`'s own default still space-separates mac symbols (`⌘ J`, verified
+	// against @tanstack/hotkeys 0.9.0) — deliberately overridden here so mac renders tight
+	// (`⌘J`). Windows/Linux keep the default `+` between text labels (`Ctrl+Shift+S` — an
+	// empty separator would concatenate them into `CtrlShiftS`).
 	const displayOptions = detectPlatform() === 'mac' ? { separatorToken: '' } : {};
 </script>
 

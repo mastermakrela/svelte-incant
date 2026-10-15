@@ -1,12 +1,16 @@
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
+import { loadConfig } from '@sveltejs/load-config';
 import prettier from 'eslint-config-prettier';
 import svelte from 'eslint-plugin-svelte';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript-eslint';
-import svelteConfig from './svelte.config.js';
+
+const loadedSvelteConfig = await loadConfig('./', { traverse: false });
+if (loadedSvelteConfig && 'error' in loadedSvelteConfig) throw loadedSvelteConfig.error;
+const svelteConfig = loadedSvelteConfig?.config;
 
 const gitignorePath = fileURLToPath(new URL('./.gitignore', import.meta.url));
 
@@ -25,6 +29,12 @@ export default defineConfig(
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
 			'no-undef': 'off'
 		}
+	},
+	{
+		// Vendored shadcn-svelte primitives: `href` is a pass-through prop, so the
+		// resolve() call belongs at the call site, not inside the primitive.
+		files: ['src/lib/**/components/ui/**'],
+		rules: { 'svelte/no-navigation-without-resolve': 'off' }
 	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],

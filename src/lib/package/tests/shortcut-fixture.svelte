@@ -5,17 +5,19 @@
 	let {
 		keys,
 		text = 'Bookmark',
-		kind = 'button'
+		kind = 'button',
+		description = 'Fixture'
 	}: {
 		keys?: RegisterableHotkey;
 		text?: string;
 		kind?: 'button' | 'input';
+		description?: string;
 	} = $props();
 </script>
 
 {#if kind === 'input'}
 	<label for="incant-fixture">{text}</label>
-	<input id="incant-fixture" {@attach shortcut({ keys, description: 'Fixture' })} />
+	<input id="incant-fixture" {@attach shortcut({ keys, description })} />
 {:else}
-	<button {@attach shortcut({ keys, description: 'Fixture' })}>{text}</button>
+	<button {@attach shortcut({ keys, description })}>{text}</button>
 {/if}
